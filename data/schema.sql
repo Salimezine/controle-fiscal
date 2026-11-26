@@ -79,4 +79,4 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT DEFAULT 'user',  -- 'admin', 'user'
   is_active INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now'))
-);<|end|><|start|>write to=assistant<|channel|>analysis<|message|>Created file successfully: C:/Users/safa.dhaoui/Documents/Default Project/controle-fiscal/data/schema.sql
+);

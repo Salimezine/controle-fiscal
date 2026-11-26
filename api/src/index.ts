@@ -170,7 +170,4 @@ export default {
 
     return json({ error: 'Route non trouvée' }, 404);
   }
-};
-```
-
----<|end|><|start|>write to<|channel|>assistant<|channel|>analysis<|message|>Created file successfully: C:/Users/safa.dhaoui/Documents/Default Project/controle-fiscal/api/src/index.ts
+}
