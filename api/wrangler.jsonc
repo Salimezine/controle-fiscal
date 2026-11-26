@@ -9,6 +9,11 @@
       "binding": "DB",
       "database_name": "controle-fiscal-db",
       "database_id": "fccdb901-0368-431c-91a6-3e9cf6245f6c"
+    },
+    {
+      "binding": "EUREX_DB",
+      "database_name": "eurex-db",
+      "database_id": "6505a544-f2d2-4010-9f7b-2da31edd9e93"
     }
   ],
   "vars": {

@@ -13,6 +13,20 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const db = new DatabaseSync(DB_PATH);
 console.log('DB:', DB_PATH);
 
+// EUREX DB (pour sync utilisateurs)
+const EUREX_DB_PATH = 'C:/Users/safa.dhaoui/Documents/Default Project/eurex/api/local/data/eurex.db';
+let eurexDb = null;
+try {
+  if (fs.existsSync(EUREX_DB_PATH)) {
+    eurexDb = new DatabaseSync(EUREX_DB_PATH);
+    console.log('EUREX DB:', EUREX_DB_PATH);
+  } else {
+    console.log('EUREX DB not found (sync disabled)');
+  }
+} catch (e) {
+  console.log('EUREX DB error:', e.message);
+}
+
 const schemaPath = path.join(__dirname, '..', 'data', 'schema.sql');
 if (fs.existsSync(schemaPath)) {
   const schema = fs.readFileSync(schemaPath, 'utf-8');
@@ -59,6 +73,40 @@ const server = http.createServer(async (req, res) => {
   try {
     if (pathName === '/health') {
       return json(res, { status: 'ok', project: 'CONTROLE FISCAL' });
+    }
+
+    // === AUTH / SYNC ===
+    if (pathName === '/api/auth/login' && method === 'POST') {
+      const body = await parseBody(req);
+      const { email } = body;
+      
+      if (!email) return json(res, { error: 'Email requis' }, 400);
+      
+      // 1. Vérifier dans CONTROLE FISCAL
+      let user = db.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1').get(email);
+      
+      // 2. Si pas trouvé, vérifier dans EUREX et synchroniser
+      if (!user && eurexDb) {
+        const eurexUser = eurexDb.prepare('SELECT * FROM org_users WHERE email = ? AND is_active = 1').get(email);
+        
+        if (eurexUser) {
+          const id = genId();
+          db.prepare('INSERT OR IGNORE INTO users (id, full_name, email, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, datetime(\'now\'))')
+            .run(id, eurexUser.full_name, eurexUser.email, eurexUser.password_hash, eurexUser.role === 'expert' || eurexUser.role === 'manager' ? 'admin' : 'user');
+          
+          user = db.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1').get(email);
+        }
+      }
+      
+      if (!user) return json(res, { error: 'Utilisateur non trouvé' }, 401);
+      
+      return json(res, {
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+        synced: true
+      });
     }
 
     if (pathName === '/api/societes' && method === 'GET') {

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "local": "node local/server.mjs",
+    "local": "node local/server.cjs",
     "types": "wrangler types"
   },
   "devDependencies": {
@@ -15,7 +15,3 @@
     "wrangler": "^4.0.0"
   }
 }
-```
-
----<|end|><|start|>write to=assistant<|channel|>analysis<|message|>Now let me also update the frontend pages to point to the local API (port 8788) and update the CNSS and IS pages with the size check.<|end|><|start|>start to=edit<|channel|>analysis <|constrain|>xml<|message|><rfl:parameter name="path">
-C:\Users\safa.dhaoui\Documents\Default Project\controle-fiscal\web\src\pages\CNSSPage.tsx

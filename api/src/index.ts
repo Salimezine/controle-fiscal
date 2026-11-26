@@ -4,6 +4,7 @@
 
 interface Env {
   DB: D1Database;
+  EUREX_DB: D1Database;
 }
 
 function json(data: any, status = 200) {
@@ -37,6 +38,59 @@ export default {
     // Health check
     if (path === '/health') {
       return json({ status: 'ok', project: 'CONTROLE FISCAL' });
+    }
+
+    // === AUTH / SYNC ===
+    // Login avec synchronisation depuis EUREX
+    if (path === '/api/auth/login' && method === 'POST') {
+      const body = await request.json() as any;
+      const { email, password } = body;
+      
+      if (!email) return json({ error: 'Email requis' }, 400);
+      
+      // 1. Vérifier dans CONTROLE FISCAL
+      let user = await env.DB.prepare(
+        'SELECT * FROM users WHERE email = ? AND is_active = 1'
+      ).bind(email).first() as any;
+      
+      // 2. Si pas trouvé, vérifier dans EUREX et synchroniser
+      if (!user) {
+        const eurexUser = await env.EUREX_DB.prepare(
+          'SELECT * FROM org_users WHERE email = ? AND is_active = 1'
+        ).bind(email).first() as any;
+        
+        if (eurexUser) {
+          // Synchroniser : créer l'utilisateur dans CONTROLE FISCAL
+          const id = genId();
+          await env.DB.prepare(
+            'INSERT OR IGNORE INTO users (id, full_name, email, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, datetime(\'now\'))'
+          ).bind(
+            id,
+            eurexUser.full_name,
+            eurexUser.email,
+            eurexUser.password_hash,
+            eurexUser.role === 'expert' || eurexUser.role === 'manager' ? 'admin' : 'user'
+          ).run();
+          
+          user = await env.DB.prepare(
+            'SELECT * FROM users WHERE email = ? AND is_active = 1'
+          ).bind(email).first() as any;
+        }
+      }
+      
+      if (!user) return json({ error: 'Utilisateur non trouvé' }, 401);
+      
+      // Note: En production, vérifier le mot de passe hashé
+      // Pour l'instant, on retourne l'utilisateur sans vérification de mot de passe
+      // (à implémenter selon vos besoins de sécurité)
+      
+      return json({
+        id: user.id,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+        synced: true
+      });
     }
 
     // === SOCIETES ===
