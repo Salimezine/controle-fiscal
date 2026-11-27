@@ -4,11 +4,6 @@
 
 interface Env {
   DB: D1Database;
-  // EUREX est sur un AUTRE compte Cloudflare : pas de binding D1 possible.
-  // On passe par l'API HTTP D1 avec un token dédié (vars wrangler).
-  EUREX_ACCOUNT_ID?: string;
-  EUREX_DB_ID?: string;
-  EUREX_D1_TOKEN?: string;
 }
 
 const CORS_HEADERS: Record<string, string> = {
@@ -68,64 +63,12 @@ async function verifyPassword(passwordHash: string, password: string): Promise<b
   return hex === expected;
 }
 
-// Requête sur la D1 EUREX via l'API Cloudflare (cross-account).
-async function eurexQuery(env: Env, sql: string, params: any[] = []): Promise<any[]> {
-  if (!env.EUREX_D1_TOKEN || !env.EUREX_ACCOUNT_ID || !env.EUREX_DB_ID) return [];
-  const res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${env.EUREX_ACCOUNT_ID}/d1/database/${env.EUREX_DB_ID}/query`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.EUREX_D1_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ sql, params })
-    }
-  );
-  const data = await res.json() as any;
-  if (!data.success) throw new Error(data.errors?.[0]?.message || 'Erreur API EUREX');
-  return data.result?.[0]?.results || [];
-}
-
-async function syncEurex(env: Env, email?: string): Promise<{ users: number; societes: number }> {
-  // Les sociétés EUREX sont les CLIENTS (org_clients), pas la table societes interne.
-  const societes = await eurexQuery(env,
-    'SELECT id, name AS raison_sociale, matricule_fiscal, created_at FROM org_clients WHERE deleted_at IS NULL');
-  for (const s of societes) {
-    await env.DB.prepare('INSERT OR IGNORE INTO societes (id, raison_sociale, matricule_fiscal, created_at) VALUES (?, ?, ?, ?)')
-      .bind(s.id, s.raison_sociale, s.matricule_fiscal || null, s.created_at || null).run();
-  }
-  // Affectation réelle : comptable -> ses clients
-  const affectations = await eurexQuery(env,
-    'SELECT assigned_comptable_id AS user_id, id AS societe_id FROM org_clients WHERE deleted_at IS NULL AND assigned_comptable_id IS NOT NULL');
-  for (const a of affectations) {
-    await env.DB.prepare('INSERT OR IGNORE INTO user_societes (user_id, societe_id) VALUES (?, ?)')
-      .bind(a.user_id, a.societe_id).run();
-  }
-
-  const sql = email
-    ? 'SELECT id, full_name, email, password_hash, role, role_label, is_active FROM org_users WHERE email = ? AND is_active = 1'
-    : 'SELECT id, full_name, email, password_hash, role, role_label, is_active FROM org_users WHERE is_active = 1';
-  const users = await eurexQuery(env, sql, email ? [email] : []);
-  for (const u of users) {
-    // Rôle : expert/manager -> admin, comptable -> user
-    const role = u.role === 'expert' || u.role_label === 'manager' ? 'admin' : 'user';
-    // rattachement : premier client (fallback) — l'affectation réelle est dans org_clients.assigned_comptable_id
-    const societeId = societes[0]?.id || null;
-    await env.DB.prepare(
-      'INSERT INTO users (id, societe_id, full_name, email, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, datetime(\'now\')) ON CONFLICT(id) DO UPDATE SET full_name=excluded.full_name, password_hash=excluded.password_hash, role=excluded.role, is_active=1'
-    ).bind(u.id, societeId, u.full_name, u.email, u.password_hash, role).run();
-  }
-  // Miroir propre : supprimer les comptes qui n'existent plus dans EUREX.
-  // Uniquement lors d'une sync complète (jamais lors du login ciblé par email).
-  if (!email && users.length > 0) {
-    const placeholders = users.map(() => '?').join(',');
-    const ids = users.map((u: any) => u.id);
-    await env.DB.prepare(`DELETE FROM sessions WHERE user_id NOT IN (${placeholders})`).bind(...ids).run();
-    await env.DB.prepare(`DELETE FROM user_societes WHERE user_id NOT IN (${placeholders})`).bind(...ids).run();
-    await env.DB.prepare(`DELETE FROM users WHERE id NOT IN (${placeholders})`).bind(...ids).run();
-  }
-  return { users: users.length, societes: societes.length };
+// Hash local des mots de passe (même algo que l'ancien snapshot EUREX).
+async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${password}`));
+  const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${salt}:${hex}`;
 }
 
 export default {
@@ -150,9 +93,9 @@ export default {
       return json({ status: 'ok', project: 'CONTROLE FISCAL' });
     }
 
-    // === GUARD : toutes les routes /api/ sauf login et sync (CI) exigent un token ===
+    // === GUARD : toutes les routes /api/ sauf login exigent un token ===
     let actor: any = null;
-    if (path.startsWith('/api/') && path !== '/api/auth/login' && path !== '/api/sync/eurex') {
+    if (path.startsWith('/api/') && path !== '/api/auth/login') {
       const header = request.headers.get('Authorization') || '';
       const token = header.startsWith('Bearer ') ? header.slice(7) : '';
       if (!token) return json({ error: 'Non authentifié' }, 401);
@@ -165,14 +108,7 @@ export default {
       if (!actor) return json({ error: 'Compte introuvable' }, 401);
     }
 
-    // === AUTH / SYNC ===
-    // Sync manuelle : POST /api/sync/eurex
-    if (path === '/api/sync/eurex' && method === 'POST') {
-      const result = await syncEurex(env);
-      return json({ status: 'ok', ...result });
-    }
-
-    // Login avec synchronisation depuis EUREX (API HTTP cross-account)
+    // === AUTH (100% local — aucune sync externe) ===
     if (path === '/api/auth/login' && method === 'POST') {
       const body = await request.json() as any;
       const { email, password } = body;
@@ -180,16 +116,9 @@ export default {
       if (!email) return json({ error: 'Email requis' }, 400);
       if (!password) return json({ error: 'Mot de passe requis' }, 400);
 
-      let user = await env.DB.prepare(
+      const user = await env.DB.prepare(
         'SELECT * FROM users WHERE email = ? AND is_active = 1'
       ).bind(email).first() as any;
-
-      if (!user && env.EUREX_D1_TOKEN) {
-        await syncEurex(env, email);
-        user = await env.DB.prepare(
-          'SELECT * FROM users WHERE email = ? AND is_active = 1'
-        ).bind(email).first() as any;
-      }
 
       if (!user) return json({ error: 'Identifiants incorrects' }, 401);
       if (!await verifyPassword(user.password_hash, password)) {
@@ -207,8 +136,7 @@ export default {
         email: user.email,
         role: user.role,
         societe_id: user.societe_id || null,
-        token,
-        synced: true
+        token
       });
     }
 
@@ -220,10 +148,85 @@ export default {
       return json({ status: 'ok' });
     }
 
-    // === USERS (debug / verification) ===
+    // === COMPTES (gestion locale — plus aucune dépendance EUREX) ===
     if (path === '/api/users' && method === 'GET') {
-      const { results } = await env.DB.prepare('SELECT id, full_name, email, role, societe_id, is_active FROM users ORDER BY full_name').all();
-      return json(results);
+      const { results: users } = await env.DB.prepare(
+        'SELECT id, full_name, email, role, societe_id, is_active, created_at FROM users ORDER BY full_name'
+      ).all();
+      const { results: affectations } = await env.DB.prepare('SELECT user_id, societe_id FROM user_societes').all();
+      return json(users.map((u: any) => ({
+        ...u,
+        societe_ids: affectations.filter((a: any) => a.user_id === u.id).map((a: any) => a.societe_id)
+      })));
+    }
+
+    if (path === '/api/users' && method === 'POST') {
+      if (actor?.role !== 'admin') return json({ error: 'Accès réservé à l\'expert' }, 403);
+      const body = await request.json() as any;
+      const { full_name, email, password, role, societe_id } = body;
+      if (!full_name || !email || !password) return json({ error: 'Nom, email et mot de passe requis' }, 400);
+      if (!['admin', 'user'].includes(role)) return json({ error: 'Rôle invalide' }, 400);
+      const exists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+      if (exists) return json({ error: 'Cet email existe déjà' }, 409);
+
+      const id = genId();
+      await env.DB.prepare(
+        'INSERT INTO users (id, societe_id, full_name, email, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, datetime(\'now\'))'
+      ).bind(id, societe_id || null, full_name, email, await hashPassword(password), role).run();
+
+      const societeIds: string[] = Array.isArray(body.societe_ids) ? body.societe_ids : [];
+      for (const sid of societeIds) {
+        await env.DB.prepare('INSERT OR IGNORE INTO user_societes (user_id, societe_id) VALUES (?, ?)').bind(id, sid).run();
+      }
+      await logAudit(env, actor, 'creation_compte', {
+        entityType: 'user', entityId: id, societeId: societe_id || null,
+        details: `${full_name} (${email}) - ${role === 'admin' ? 'Expert' : 'Comptable'}`
+      });
+      return json({ id, full_name, email, role, societe_id: societe_id || null, societe_ids: societeIds }, 201);
+    }
+
+    const userMatch = path.match(/^\/api\/users\/([^/]+)$/);
+    if (userMatch && (method === 'PUT' || method === 'DELETE')) {
+      if (actor?.role !== 'admin') return json({ error: 'Accès réservé à l\'expert' }, 403);
+      const id = userMatch[1];
+      const target = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first() as any;
+      if (!target) return json({ error: 'Compte introuvable' }, 404);
+      if (id === actor.id) return json({ error: 'Impossible de modifier son propre statut' }, 400);
+
+      if (method === 'DELETE') {
+        await env.DB.prepare('UPDATE users SET is_active = 0 WHERE id = ?').bind(id).run();
+        await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id).run();
+        await logAudit(env, actor, 'desactivation_compte', {
+          entityType: 'user', entityId: id, details: `${target.full_name} (${target.email})`
+        });
+        return json({ status: 'ok' });
+      }
+
+      const body = await request.json() as any;
+      const fullName = body.full_name ?? target.full_name;
+      const email = body.email ?? target.email;
+      const role = body.role ?? target.role;
+      const isActive = body.is_active === undefined ? target.is_active : (body.is_active ? 1 : 0);
+      if (!['admin', 'user'].includes(role)) return json({ error: 'Rôle invalide' }, 400);
+      const duplicate = await env.DB.prepare('SELECT id FROM users WHERE email = ? AND id != ?').bind(email, id).first();
+      if (duplicate) return json({ error: 'Cet email existe déjà' }, 409);
+      if (!isActive) return json({ error: 'Utilisez DELETE pour désactiver' }, 400);
+
+      const passwordHash = body.password ? await hashPassword(body.password) : target.password_hash;
+      await env.DB.prepare(
+        'UPDATE users SET full_name = ?, email = ?, role = ?, is_active = ?, password_hash = ? WHERE id = ?'
+      ).bind(fullName, email, role, isActive, passwordHash, id).run();
+
+      if (Array.isArray(body.societe_ids)) {
+        await env.DB.prepare('DELETE FROM user_societes WHERE user_id = ?').bind(id).run();
+        for (const sid of body.societe_ids) {
+          await env.DB.prepare('INSERT OR IGNORE INTO user_societes (user_id, societe_id) VALUES (?, ?)').bind(id, sid).run();
+        }
+      }
+      await logAudit(env, actor, 'modification_compte', {
+        entityType: 'user', entityId: id, details: `${fullName} (${email})`
+      });
+      return json({ id, full_name: fullName, email, role, is_active: isActive });
     }
 
     // === SOCIETES ===

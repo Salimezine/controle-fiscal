@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
--- Affectation comptable -> sociétés (miroir de org_clients.assigned_comptable_id EUREX)
+-- Affectation comptable -> sociétés (snapshot local, gérable depuis l'écran Comptes)
 CREATE TABLE IF NOT EXISTS user_societes (
   user_id TEXT NOT NULL,
   societe_id TEXT NOT NULL,

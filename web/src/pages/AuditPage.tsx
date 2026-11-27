@@ -12,7 +12,10 @@ const LABELS: Record<string, string> = {
   ajout_piece: 'Pièce PDF ajoutée',
   ajout_recu: 'Reçu ajouté',
   ajout_recu_pdf: 'Reçu + PDF ajoutés',
-  suppression_dossier: 'Dossier supprimé'
+  suppression_dossier: 'Dossier supprimé',
+  creation_compte: 'Compte créé',
+  modification_compte: 'Compte modifié',
+  desactivation_compte: 'Compte désactivé'
 };
 
 export default function AuditPage() {

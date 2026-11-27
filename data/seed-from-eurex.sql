@@ -1,6 +1,6 @@
--- Seed initial : comptes + sociétés depuis EUREX (prod D1)
--- Rôles EUREX : expert/manager -> admin, comptable -> user
--- Les sociétés EUREX sont rattachees a la societe ANIMAL CITY (soc_animal).
+-- Snapshot initial (historique) : comptes + sociétés repris d'EUREX.
+-- INSERT OR IGNORE : ne remplace jamais les comptes créés/modifiés localement.
+-- Rôles : expert/manager -> admin, comptable -> user. Périmètre : soc_animal.
 
 INSERT OR IGNORE INTO societes (id, raison_sociale, matricule_fiscal, created_at) VALUES
   ('soc_animal', 'ANIMAL CITY CARE', NULL, '2026-08-31 20:46:28');

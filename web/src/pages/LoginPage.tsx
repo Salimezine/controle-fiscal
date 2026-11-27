@@ -42,7 +42,7 @@ export default function LoginPage({ onLogin }: { onLogin: (user: AuthUser) => vo
         <div className="text-center mb-6">
           <div className="text-3xl mb-2">🔐</div>
           <h1 className="text-2xl font-bold">CONTROLE FISCAL</h1>
-          <p className="text-sm text-gray-500 mt-1">Connexion avec un compte EUREX</p>
+          <p className="text-sm text-gray-500 mt-1">Comptes locaux CONTROLE FISCAL</p>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
@@ -85,7 +85,7 @@ export default function LoginPage({ onLogin }: { onLogin: (user: AuthUser) => vo
         </form>
 
         <p className="text-xs text-gray-400 text-center mt-6">
-          Comptes synchronisés depuis EUREX · Session 7 jours
+          Comptes conservés localement · Session 7 jours
         </p>
       </div>
     </div>
