@@ -50,11 +50,21 @@ async function eurexQuery(env: Env, sql: string, params: any[] = []): Promise<an
 }
 
 async function syncEurex(env: Env, email?: string): Promise<{ users: number; societes: number }> {
-  const societes = await eurexQuery(env, 'SELECT id, raison_sociale, matricule_fiscal, created_at FROM societes');
+  // Les sociétés EUREX sont les CLIENTS (org_clients), pas la table societes interne.
+  const societes = await eurexQuery(env,
+    'SELECT id, name AS raison_sociale, matricule_fiscal, created_at FROM org_clients WHERE deleted_at IS NULL');
   for (const s of societes) {
     await env.DB.prepare('INSERT OR IGNORE INTO societes (id, raison_sociale, matricule_fiscal, created_at) VALUES (?, ?, ?, ?)')
       .bind(s.id, s.raison_sociale, s.matricule_fiscal || null, s.created_at || null).run();
   }
+  // Affectation réelle : comptable -> ses clients
+  const affectations = await eurexQuery(env,
+    'SELECT assigned_comptable_id AS user_id, id AS societe_id FROM org_clients WHERE deleted_at IS NULL AND assigned_comptable_id IS NOT NULL');
+  for (const a of affectations) {
+    await env.DB.prepare('INSERT OR IGNORE INTO user_societes (user_id, societe_id) VALUES (?, ?)')
+      .bind(a.user_id, a.societe_id).run();
+  }
+
   const sql = email
     ? 'SELECT id, full_name, email, password_hash, role, role_label, is_active FROM org_users WHERE email = ? AND is_active = 1'
     : 'SELECT id, full_name, email, password_hash, role, role_label, is_active FROM org_users WHERE is_active = 1';
@@ -62,7 +72,7 @@ async function syncEurex(env: Env, email?: string): Promise<{ users: number; soc
   for (const u of users) {
     // Rôle : expert/manager -> admin, comptable -> user
     const role = u.role === 'expert' || u.role_label === 'manager' ? 'admin' : 'user';
-    // rattachement à la société EUREX (une seule société pour l'instant)
+    // rattachement : premier client (fallback) — l'affectation réelle est dans org_clients.assigned_comptable_id
     const societeId = societes[0]?.id || null;
     await env.DB.prepare(
       'INSERT INTO users (id, societe_id, full_name, email, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, datetime(\'now\')) ON CONFLICT(id) DO UPDATE SET full_name=excluded.full_name, password_hash=excluded.password_hash, role=excluded.role, is_active=1'

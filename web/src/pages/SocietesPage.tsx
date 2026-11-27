@@ -11,6 +11,7 @@ interface Societe {
 
 export default function SocietesPage() {
   const [societes, setSocietes] = useState<Societe[]>([]);
+  const [search, setSearch] = useState('');
   const [newSociete, setNewSociete] = useState({ raison_sociale: '', matricule_fiscal: '' });
 
   useEffect(() => {
@@ -34,24 +35,43 @@ export default function SocietesPage() {
     }
   };
 
+  const filtered = societes.filter(s =>
+    s.raison_sociale.toLowerCase().includes(search.toLowerCase()) ||
+    (s.matricule_fiscal || '').toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">🏢 Sociétés</h1>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Liste des sociétés */}
         <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold mb-3">Liste des Sociétés</h2>
-          {societes.map(s => (
-            <div key={s.id} className="p-3 border rounded-lg mb-2">
-              <div className="font-medium">{s.raison_sociale}</div>
-              <div className="text-sm text-gray-500">Matricule: {s.matricule_fiscal || '—'}</div>
-            </div>
-          ))}
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Liste des Sociétés ({societes.length})</h2>
+          </div>
+          <input
+            type="search"
+            placeholder="🔍 Rechercher une société..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full p-2 border rounded mb-3"
+          />
+          <div className="max-h-[520px] overflow-y-auto pr-1">
+            {filtered.map(s => (
+              <div key={s.id} className="p-3 border rounded-lg mb-2">
+                <div className="font-medium">{s.raison_sociale}</div>
+                <div className="text-sm text-gray-500">Matricule: {s.matricule_fiscal || '—'}</div>
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <div className="text-sm text-gray-500">Aucune société trouvée.</div>
+            )}
+          </div>
         </div>
 
         {/* Ajouter une société */}
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-white rounded-lg shadow p-4 h-fit">
           <h2 className="text-lg font-semibold mb-3">Nouvelle Société</h2>
           <input
             type="text"
