@@ -11,7 +11,8 @@ const LABELS: Record<string, string> = {
   creation_dossier: 'Création dossier',
   ajout_piece: 'Pièce PDF ajoutée',
   ajout_recu: 'Reçu ajouté',
-  ajout_recu_pdf: 'Reçu + PDF ajoutés'
+  ajout_recu_pdf: 'Reçu + PDF ajoutés',
+  suppression_dossier: 'Dossier supprimé'
 };
 
 export default function AuditPage() {

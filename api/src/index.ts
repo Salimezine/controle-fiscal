@@ -514,6 +514,20 @@ export default {
       return json(results);
     }
 
+    // Nettoyage du journal (expert uniquement) — filtre obligatoire
+    if (path === '/api/audit' && method === 'DELETE') {
+      if (actor?.role !== 'admin') return json({ error: 'Accès réservé à l\'expert' }, 403);
+      const userId = url.searchParams.get('user_id');
+      const prefix = url.searchParams.get('prefix');
+      if (!userId && !prefix) return json({ error: 'Filtre requis (user_id ou prefix)' }, 400);
+      let query = 'DELETE FROM audit_log WHERE 1=1';
+      const binds: any[] = [];
+      if (userId) { query += ' AND user_id = ?'; binds.push(userId); }
+      if (prefix) { query += ' AND user_id LIKE ?'; binds.push(prefix + '%'); }
+      const res = await env.DB.prepare(query).bind(...binds).run();
+      return json({ status: 'ok', deleted: res.meta?.changes ?? 0 });
+    }
+
     // Liste des comptables pour l'affectation (expert)
     if (path === '/api/comptables' && method === 'GET') {
       const { results } = await env.DB.prepare(
