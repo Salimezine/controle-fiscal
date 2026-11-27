@@ -69,16 +69,24 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
       isAdmin ? authFetch(`${API_URL}/api/comptables`) : Promise.resolve(null)
     ])
       .then(async ([s, t, c]) => {
-        setSocietes(await s.json());
+        const societesList = await s.json();
+        setSocietes(societesList);
         const list = await t.json();
         const arr: Travail[] = Array.isArray(list) ? list : [];
         setTravaux(arr);
         if (c) setComptables(await c.json());
         setLoading(false);
 
-        // Ouverture directe depuis l'Accueil : /dmi?dossier=<id>
-        const wanted = new URLSearchParams(location.search).get('dossier');
+        const params = new URLSearchParams(location.search);
+        // Depuis l'Accueil : /dmi?dossier=<id>
+        const wanted = params.get('dossier');
         if (wanted && arr.some(d => d.id === wanted)) await loadDossier(wanted);
+        // Depuis la section « sans CNSS » : /cnss?societe=<id>
+        const wantedSoc = params.get('societe');
+        if (wantedSoc && Array.isArray(societesList) &&
+            societesList.some((soc: Societe) => soc.id === wantedSoc)) {
+          setDossier(d => ({ ...d, societe_id: wantedSoc }));
+        }
       })
       .catch(e => { setError(String(e)); setLoading(false); });
   }, [type, isAdmin, location.search]);

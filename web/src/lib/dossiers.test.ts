@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { filterDossiers, type DossierRow } from './dossiers';
+import { filterDossiers, societesSansCNSS, type DossierRow } from './dossiers';
 
 const societes = [
   { id: 'soc_1', raison_sociale: 'ANIMAL CITY CARE' },
@@ -23,5 +23,22 @@ describe('filterDossiers (Accueil)', () => {
     expect(filterDossiers(dossiers, societes, 'animal', '').map(d => d.id)).toEqual(['a']);
     expect(filterDossiers(dossiers, societes, 'samar', '').map(d => d.id)).toEqual(['b']);
     expect(filterDossiers(dossiers, societes, 'REF-3', '').map(d => d.id)).toEqual(['c']);
+  });
+});
+
+describe('societesSansCNSS', () => {
+  it('signale les sociétés avec DMI/IS/AP mais sans CNSS', () => {
+    expect(societesSansCNSS(dossiers)).toEqual([
+      { societe_id: 'soc_1', presents: ['DMI'] },
+      { societe_id: 'soc_2', presents: ['DMI', 'AP'] }
+    ]);
+  });
+
+  it('ignore une société qui a déjà un dossier CNSS', () => {
+    const avecCnss: DossierRow[] = [
+      ...dossiers,
+      { id: 'd', type_travail: 'CNSS', titre: 'CNSS', societe_id: 'soc_1', created_at: '2026-05-01' }
+    ];
+    expect(societesSansCNSS(avecCnss).map(s => s.societe_id)).toEqual(['soc_2']);
   });
 });

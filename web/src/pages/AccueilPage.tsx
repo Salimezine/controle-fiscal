@@ -4,7 +4,7 @@ import ActiviteComptables from '../components/ActiviteComptables';
 import { API_URL, authFetch } from '../lib/api';
 import { formatDuree } from '../lib/activite';
 import { clearSession, getSession } from '../lib/auth';
-import { filterDossiers } from '../lib/dossiers';
+import { filterDossiers, societesSansCNSS } from '../lib/dossiers';
 import { actionLabel, actionStyle, formatDate } from '../lib/labels';
 
 const TYPES = ['DMI', 'AP', 'CNSS', 'IS'];
@@ -88,6 +88,7 @@ export default function AccueilPage() {
     () => filterDossiers(dossiers, societes, searchDossier, filterType),
     [dossiers, societes, searchDossier, filterType]
   );
+  const sansCnss = useMemo(() => societesSansCNSS(dossiers), [dossiers]);
   const statutStyle = (s: string) =>
     s === 'termine' || s === 'valide' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
 
@@ -243,6 +244,33 @@ export default function AccueilPage() {
           </div>
         )}
       </div>
+
+      {sansCnss.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold">⚠️ Sociétés sans CNSS ({sansCnss.length})</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Elles ont déjà DMI / IS / AP mais aucun dossier CNSS. Cliquer sur « Créer CNSS » pour le rajouter.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {sansCnss.map(g => (
+              <div key={g.societe_id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{socNom(g.societe_id)}</div>
+                  <div className="text-xs text-gray-500">
+                    Déjà : {g.presents.map(t => `${ICONS[t]} ${t}`).join(' · ')}
+                  </div>
+                </div>
+                <a href={`/cnss?societe=${g.societe_id}`}
+                  className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 whitespace-nowrap">
+                  ➕ Créer CNSS
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
