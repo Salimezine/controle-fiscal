@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import ActiviteComptables from '../components/ActiviteComptables';
 import { API_URL, authFetch } from '../lib/api';
 import { formatDuree } from '../lib/activite';
+import { avancementDossier, cleObjectif, type Avancement } from '../lib/avancement';
 import { clearSession, getSession } from '../lib/auth';
 import { filterDossiers, societesSansCNSS } from '../lib/dossiers';
 import { actionLabel, actionStyle, formatDate } from '../lib/labels';
@@ -13,7 +14,8 @@ const ICONS: Record<string, string> = { DMI: '📄', AP: '🛒', CNSS: '🏥', I
 interface Travail {
   id: string; societe_id: string; type_travail: string; titre: string;
   reference: string | null; statut: string;
-  comptable_name: string | null; created_at: string; nb_pieces: number; nb_recues: number;
+  comptable_name: string | null; created_at: string;
+  nb_pieces: number; nb_recues: number; nb_recues_pdf?: number;
   duree_minutes?: number;
 }
 interface Event {
@@ -33,6 +35,7 @@ export default function AccueilPage() {
   const [dossiers, setDossiers] = useState<Travail[]>([]);
   const [audit, setAudit] = useState<Event[]>([]);
   const [objectifs, setObjectifs] = useState<Objectif[]>([]);
+  const [objectifsSociete, setObjectifsSociete] = useState<Record<string, number>>({});
   const [annee, setAnnee] = useState(new Date().getFullYear());
   const [annees, setAnnees] = useState<number[]>([]);
   const [searchDossier, setSearchDossier] = useState('');
@@ -84,11 +87,29 @@ export default function AccueilPage() {
     let alive = true;
     (async () => {
       try {
-        const res = await authFetch(`${API_URL}/api/objectifs?annee=${annee}`);
-        if (res.status === 401) { clearSession(); window.location.href = '/login'; return; }
-        if (!res.ok) return;
-        const data = await res.json();
-        if (alive && Array.isArray(data.objectifs)) setObjectifs(data.objectifs);
+        const [globalRes, societeRes] = await Promise.all([
+          authFetch(`${API_URL}/api/objectifs?annee=${annee}`),
+          authFetch(`${API_URL}/api/objectifs/societes?annee=${annee}`)
+        ]);
+        if (globalRes.status === 401 || societeRes.status === 401) {
+          clearSession();
+          window.location.href = '/login';
+          return;
+        }
+        if (globalRes.ok) {
+          const data = await globalRes.json();
+          if (alive && Array.isArray(data.objectifs)) setObjectifs(data.objectifs);
+        }
+        if (societeRes.ok) {
+          const data = await societeRes.json();
+          if (alive && Array.isArray(data.objectifs)) {
+            setObjectifsSociete(Object.fromEntries(
+              data.objectifs.map((o: any) => [
+                cleObjectif(String(o.societe_id), String(o.type_travail)), Number(o.objectif)
+              ])
+            ));
+          }
+        }
       } catch { /* garde les objectifs précédents */ }
     })();
     return () => { alive = false; };
@@ -107,6 +128,9 @@ export default function AccueilPage() {
   const sansCnss = useMemo(() => societesSansCNSS(dossiersAnnee), [dossiersAnnee]);
   const statutStyle = (s: string) =>
     s === 'termine' || s === 'valide' ? 'cf-badge-green' : 'cf-badge-amber';
+  const typeStyle = (t: string) =>
+    ({ DMI: 'cf-badge-blue', AP: 'cf-badge-purple', CNSS: 'cf-badge-green', IS: 'cf-badge-amber' }[t] || 'cf-badge-gray');
+  const avancement = (d: Travail): Avancement => avancementDossier(d, objectifsSociete);
 
   const stats = [
     { label: 'Sociétés', value: societes.length, href: '/societes', icon: '🏢' },
@@ -215,7 +239,8 @@ export default function AccueilPage() {
               📁 Tous les dossiers <span className="cf-badge cf-badge-blue">{allDossiers.length}</span>
             </h2>
             <p className="cf-section-sub">
-              {isAdmin ? 'Expert : tous les dossiers de l’année.' : 'Comptable : vos dossiers attribués.'}
+              {isAdmin ? 'Expert : tous les dossiers de l’année.' : 'Comptable : vos dossiers attribués.'}{' '}
+              Chaque dossier montre son avancement (PDF déposés / objectif) et tous ses détails.
             </p>
           </div>
           <div className="cf-toolbar">
@@ -230,48 +255,62 @@ export default function AccueilPage() {
           </div>
         </div>
 
-        <div className="cf-table-scroll">
-          <table className="cf-table">
-            <thead>
-              <tr>
-                <th className="text-left p-2 whitespace-nowrap">Type</th>
-                <th className="text-left p-2">Dossier</th>
-                <th className="text-left p-2">Société</th>
-                <th className="text-left p-2">Comptable</th>
-                <th className="text-left p-2">Réf.</th>
-                <th className="text-left p-2 whitespace-nowrap">Pièces</th>
-                <th className="text-left p-2 whitespace-nowrap">Temps</th>
-                <th className="text-left p-2">Statut</th>
-                <th className="text-left p-2 whitespace-nowrap">Créé le</th>
-                <th className="text-left p-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {allDossiers.map(d => (
-                <tr key={d.id}>
-                  <td className="font-medium whitespace-nowrap">{ICONS[d.type_travail]} {d.type_travail}</td>
-                  <td className="font-medium">{d.titre}</td>
-                  <td>{socNom(d.societe_id)}</td>
-                  <td>{d.comptable_name || <span className="cf-badge cf-badge-amber">Non attribué</span>}</td>
-                  <td className="cf-muted">{d.reference || '—'}</td>
-                  <td className="whitespace-nowrap">📎 {d.nb_pieces || 0} · 🧾 {d.nb_recues || 0}</td>
-                  <td className="whitespace-nowrap cf-muted" title={`${d.duree_minutes || 0} min`}>
-                    ⏱ {formatDuree(d.duree_minutes || 0)}
-                  </td>
-                  <td>
+        <div className="cf-dossier-list">
+          {allDossiers.map(d => {
+            const a = avancement(d);
+            return (
+              <article key={d.id} className="cf-dossier-card">
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`cf-badge ${typeStyle(d.type_travail)}`}>
+                        {ICONS[d.type_travail]} {d.type_travail}
+                      </span>
+                      <span className="font-bold text-sm">{d.titre}</span>
+                    </div>
+                    <div className="text-xs cf-muted mt-1.5">
+                      🏢 {socNom(d.societe_id)} · 👤 {d.comptable_name || 'Non attribué'}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <span className={`cf-badge ${statutStyle(d.statut)}`}>{d.statut}</span>
-                  </td>
-                  <td className="whitespace-nowrap cf-muted">{formatDate(d.created_at)}</td>
-                  <td>
                     <a href={`/${d.type_travail.toLowerCase()}?dossier=${d.id}`}
                       className="cf-btn cf-btn-primary cf-btn-sm whitespace-nowrap">
                       Ouvrir →
                     </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <div className="flex items-center justify-between gap-2 text-xs mb-1.5">
+                    <span className="font-bold">📈 Avancement</span>
+                    {a.sansObjectif ? (
+                      <span className="cf-badge cf-badge-gray">— sans objectif</span>
+                    ) : (
+                      <span className={a.termine ? 'text-green-700 font-bold' : 'font-semibold cf-muted'}>
+                        {a.realise} / {a.objectif} PDF · {a.pourcent}%
+                      </span>
+                    )}
+                  </div>
+                  {a.sansObjectif ? (
+                    <div className="text-xs cf-muted">Objectif 0 (CNSS déjà fourni) — suivi libre des PDF.</div>
+                  ) : (
+                    <div className={`cf-progress ${a.termine ? 'is-done' : ''}`}>
+                      <span style={{ width: `${a.pourcent}%` }} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="cf-dossier-details">
+                  <div><span>Réf.</span><b>{d.reference || '—'}</b></div>
+                  <div><span>📎 Pièces</span><b>{d.nb_pieces || 0}</b></div>
+                  <div><span>🧾 Reçus</span><b>{d.nb_recues || 0} <small>({d.nb_recues_pdf || 0} PDF)</small></b></div>
+                  <div title={`${d.duree_minutes || 0} min`}><span>⏱ Temps</span><b>{formatDuree(d.duree_minutes || 0)}</b></div>
+                  <div><span>📅 Créé le</span><b>{formatDate(d.created_at)}</b></div>
+                </div>
+              </article>
+            );
+          })}
         </div>
 
         {loading && <div className="p-3 text-sm cf-muted">Chargement des dossiers...</div>}

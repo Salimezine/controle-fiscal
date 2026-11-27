@@ -289,6 +289,7 @@ export default {
       let query = `SELECT t.*, a.comptable_id, a.comptable_name, a.assigned_at,
         (SELECT COUNT(*) FROM pieces_justificatives p WHERE p.travail_id = t.id) AS nb_pieces,
         (SELECT COUNT(*) FROM recues r WHERE r.travail_id = t.id) AS nb_recues,
+        (SELECT COUNT(*) FROM recue_pdfs rp WHERE rp.travail_id = t.id) AS nb_recues_pdf,
         ${DUREE_TRAVAIL_SQL} AS duree_minutes
         FROM travaux t LEFT JOIN travail_attributions a ON a.travail_id = t.id
         WHERE 1=1`;

@@ -20,3 +20,8 @@ test('l’API lit et écrit les objectifs, avec audit expert', () => {
   assert.match(api, /'modification_objectifs'/);
   assert.match(api, /actor\?\.role !== 'admin'/);
 });
+
+test('l’API expose les PDF des reçus pour l’avancement de chaque dossier', () => {
+  assert.match(api, /AS nb_recues_pdf/);
+  assert.match(api, /path === '\/api\/travaux' && method === 'GET'/);
+});
