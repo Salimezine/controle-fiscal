@@ -165,83 +165,96 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
   const filtered = filterSociete ? travaux.filter(t => t.societe_id === filterSociete) : travaux;
   const socNom = (id: string) => societes.find(s => s.id === id)?.raison_sociale || '—';
   const statutStyle = (s: string) =>
-    s === 'termine' || s === 'valide' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+    s === 'termine' || s === 'valide' ? 'cf-badge-green' : 'cf-badge-amber';
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-1">{icone} {titre}</h1>
-      <p className="text-sm text-gray-600 mb-3">
-        1️⃣ Choisir la société et créer le dossier → 2️⃣ l’ouvrir → 3️⃣ ajouter le PDF / reçu. Tout est tracé dans l’Audit.
-      </p>
-      {error && <div className="mb-4 p-2 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
-      {success && <div className="mb-4 p-2 rounded bg-green-50 text-green-700 text-sm">✅ {success}</div>}
+      <div className="cf-page-head">
+        <div>
+          <h1 className="cf-page-title">{icone} {titre}</h1>
+          <p className="cf-page-sub">Un dossier par société et par type. Chaque PDF déposé est compté et tracé.</p>
+        </div>
+        <span className="cf-badge cf-badge-blue">{travaux.length} dossier(s)</span>
+      </div>
+      <div className="cf-toolbar mb-4">
+        <span className="cf-step"><b>1</b> Créer le dossier</span>
+        <span className="text-xs cf-muted">→</span>
+        <span className="cf-step"><b>2</b> Ouvrir le dossier</span>
+        <span className="text-xs cf-muted">→</span>
+        <span className="cf-step"><b>3</b> Ajouter PDF / reçu</span>
+      </div>
+      {error && <div className="cf-alert cf-alert-error mb-4">{error}</div>}
+      {success && <div className="cf-alert cf-alert-success mb-4">✅ {success}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Dossiers + création */}
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">📋 Dossiers {type} ({filtered.length})</h2>
+          <div className="cf-card p-5">
+            <div className="cf-page-head mb-3">
+              <h2 className="cf-section-title flex items-center gap-2">
+                📋 Dossiers {type} <span className="cf-badge cf-badge-blue">{filtered.length}</span>
+              </h2>
             </div>
-            <p className="text-xs text-gray-500 mb-2">Cliquer sur un dossier pour l’ouvrir à droite.</p>
+            <p className="text-xs cf-muted mb-2">Cliquez sur un dossier pour l’ouvrir à droite.</p>
             <select value={filterSociete} onChange={e => setFilterSociete(e.target.value)}
-              className="w-full p-2 border rounded mb-3 text-sm">
+              className="w-full p-2 rounded mb-3 text-sm">
               <option value="">Toutes les sociétés</option>
               {societes.map(s => <option key={s.id} value={s.id}>{s.raison_sociale}</option>)}
             </select>
             <div className="max-h-[420px] overflow-y-auto pr-1">
-              {loading && <div className="text-sm text-gray-500">Chargement...</div>}
+              {loading && <div className="text-sm cf-muted">Chargement...</div>}
               {filtered.map(t => (
                 <div key={t.id} onClick={() => loadDossier(t.id)}
-                  className={`p-3 border rounded-lg mb-2 cursor-pointer hover:bg-gray-50 ${selectedId === t.id ? 'border-blue-500 bg-blue-50' : ''}`}>
-                  <div className="font-medium">{t.titre}</div>
-                  <div className="text-xs text-gray-500">
-                    {socNom(t.societe_id)} · {t.reference || 'sans réf.'}{' '}
-                    <span className={`px-1.5 py-0.5 rounded ${statutStyle(t.statut)}`}>{t.statut}</span>
+                  className={`cf-dossier-item p-3 border border-slate-200 rounded-xl mb-2 ${selectedId === t.id ? 'is-active' : ''}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold">{t.titre}</div>
+                    <span className={`cf-badge ${statutStyle(t.statut)}`}>{t.statut}</span>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs cf-muted mt-1">
+                    {socNom(t.societe_id)} · {t.reference || 'sans réf.'}
+                  </div>
+                  <div className="text-xs cf-muted mt-1">
                     👤 {t.comptable_name || 'Non attribué'} · 📎 {t.nb_pieces || 0} pièce(s) · 🧾 {t.nb_recues || 0} reçu(s)
                     {' '}· ⏱ {formatDuree(t.duree_minutes || 0)}
                   </div>
                 </div>
               ))}
-              {!loading && filtered.length === 0 && <div className="text-sm text-gray-500">Aucun dossier.</div>}
+              {!loading && filtered.length === 0 && <div className="cf-empty">Aucun dossier.</div>}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-semibold mb-1">➕ Nouveau dossier {type}</h2>
-            <p className="text-xs text-gray-500 mb-3">Société → Référence / Titre → Créer.</p>
+          <div className="cf-card p-5">
+            <h2 className="cf-section-title mb-1">➕ Nouveau dossier {type}</h2>
+            <p className="text-xs cf-muted mb-4">Société → Référence / Titre → Créer.</p>
             <div className="space-y-2">
               <select value={dossier.societe_id} onChange={e => setDossier({ ...dossier, societe_id: e.target.value })}
-                className="w-full p-2 border rounded text-sm">
+                className="w-full p-2 rounded text-sm">
                 <option value="">— Société —</option>
                 {societes.map(s => <option key={s.id} value={s.id}>{s.raison_sociale}</option>)}
               </select>
               {isAdmin && (
                 <select value={dossier.comptable_id} onChange={e => setDossier({ ...dossier, comptable_id: e.target.value })}
-                  className="w-full p-2 border rounded text-sm">
+                  className="w-full p-2 rounded text-sm">
                   <option value="">Comptable : moi-même (expert)</option>
                   {comptables.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                 </select>
               )}
               {!isAdmin && (
-                <div className="text-xs text-blue-700 bg-blue-50 p-2 rounded">
-                  Comptable attribué automatiquement : {getSession()?.user.full_name}
+                <div className="cf-alert cf-alert-info">
+                  Comptable attribué automatiquement : <b>{getSession()?.user.full_name}</b>
                 </div>
               )}
               <input placeholder="Référence" value={dossier.reference}
                 onChange={e => setDossier({ ...dossier, reference: e.target.value })}
-                className="w-full p-2 border rounded text-sm" />
+                className="w-full p-2 rounded text-sm" />
               <input placeholder="Titre du dossier *" value={dossier.titre}
                 onChange={e => setDossier({ ...dossier, titre: e.target.value })}
-                className="w-full p-2 border rounded text-sm" />
+                className="w-full p-2 rounded text-sm" />
               <input placeholder="Description" value={dossier.description}
                 onChange={e => setDossier({ ...dossier, description: e.target.value })}
-                className="w-full p-2 border rounded text-sm" />
-              <button onClick={createDossier} disabled={busy}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm">
-                {busy ? 'En cours...' : 'Créer le dossier'}
+                className="w-full p-2 rounded text-sm" />
+              <button onClick={createDossier} disabled={busy} className="cf-btn cf-btn-primary cf-btn-block">
+                {busy ? 'En cours...' : 'Créer le dossier →'}
               </button>
             </div>
           </div>
@@ -249,91 +262,116 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
 
         {/* Détail du dossier sélectionné */}
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-semibold mb-3">👆 Dossier ouvert</h2>
-            {!selectedId && <p className="text-sm text-gray-500">Cliquez sur un dossier à gauche pour voir ses pièces et reçus.</p>}
+          <div className="cf-card p-5">
+            <h2 className="cf-section-title mb-3">👆 Dossier ouvert</h2>
+            {!selectedId && (
+              <div className="cf-empty">
+                <b>Aucun dossier sélectionné</b>
+                Cliquez sur un dossier à gauche pour voir ses pièces et ses reçus.
+              </div>
+            )}
             {selectedId && dossierMeta && (
-              <div className="text-sm space-y-1">
-                <div className="font-medium text-base">{dossierMeta.titre}</div>
-                <div>Société : <b>{socNom(dossierMeta.societe_id)}</b></div>
-                <div>Comptable : <b>{dossierMeta.comptable_name || 'Non attribué'}</b></div>
-                <div>Référence : {dossierMeta.reference || '—'} · Statut :{' '}
-                  <span className={`px-1.5 py-0.5 rounded ${statutStyle(dossierMeta.statut)}`}>{dossierMeta.statut}</span>
+              <div className="text-sm space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-bold text-base">{dossierMeta.titre}</div>
+                  <span className={`cf-badge ${statutStyle(dossierMeta.statut)}`}>{dossierMeta.statut}</span>
                 </div>
-                <div className="text-gray-500">Créé le {dossierMeta.created_at}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-slate-50 p-2.5">
+                    <div className="text-xs cf-muted">Société</div>
+                    <div className="font-semibold">{socNom(dossierMeta.societe_id)}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-2.5">
+                    <div className="text-xs cf-muted">Comptable</div>
+                    <div className="font-semibold">{dossierMeta.comptable_name || 'Non attribué'}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-2.5">
+                    <div className="text-xs cf-muted">Référence</div>
+                    <div className="font-semibold">{dossierMeta.reference || '—'}</div>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-2.5">
+                    <div className="text-xs cf-muted">Créé le</div>
+                    <div className="font-semibold">{dossierMeta.created_at}</div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
           {selectedId && (
             <>
-              <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-lg font-semibold mb-1">📎 Étape 3 — Pièces PDF</h2>
-                <p className="text-xs text-gray-500 mb-2">PDF seulement, max 700KB. Ajout tracé automatiquement dans l’Audit.</p>
-                <input type="file" accept=".pdf" disabled={busy}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadPiece(f); }}
-                  className="block w-full text-sm mb-3" />
+              <div className="cf-card p-5">
+                <h2 className="cf-section-title mb-1">📎 Pièces PDF</h2>
+                <p className="text-xs cf-muted mb-3">PDF seulement, max 700KB. Ajout tracé dans l’Audit.</p>
+                <label className={`cf-drop block mb-3 ${busy ? 'opacity-50' : ''}`}>
+                  <b>📤 Ajouter un PDF</b>
+                  <span className="block mt-1">Cliquer pour choisir un fichier (700 KB max)</span>
+                  <input type="file" accept=".pdf" disabled={busy}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadPiece(f); }}
+                    className="block w-full text-xs mt-2" />
+                </label>
                 <div className="space-y-2 max-h-[260px] overflow-y-auto">
                   {pieces.map(p => (
-                    <div key={p.id} className="flex items-center justify-between p-2 border rounded">
-                      <div>
-                        <div className="text-sm font-medium">{p.label}</div>
-                        <div className="text-xs text-gray-500">{p.file_name} ({Math.round(p.file_size / 1024)} KB)</div>
+                    <div key={p.id}
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200 bg-white">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold truncate">{p.label}</div>
+                        <div className="text-xs cf-muted">{p.file_name} · {Math.round(p.file_size / 1024)} KB</div>
                       </div>
                       <button onClick={() => download(`${API_URL}/api/pieces/${p.id}/download`, p.file_name)}
-                        className="px-2 py-1 bg-blue-600 text-white rounded text-xs">Télécharger</button>
+                        className="cf-btn cf-btn-soft cf-btn-sm whitespace-nowrap">⬇ PDF</button>
                     </div>
                   ))}
-                  {pieces.length === 0 && <div className="text-sm text-gray-500">Aucune pièce.</div>}
+                  {pieces.length === 0 && <div className="cf-empty">Aucune pièce déposée.</div>}
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-lg font-semibold mb-1">🧾 Étape 3 — Reçus (RCUE)</h2>
-                <p className="text-xs text-gray-500 mb-2">N° reçu obligatoire. Joindre le PDF du reçu si disponible.</p>
+              <div className="cf-card p-5">
+                <h2 className="cf-section-title mb-1">🧾 Reçus (RCUE)</h2>
+                <p className="text-xs cf-muted mb-3">N° reçu obligatoire. Joindre le PDF du reçu si disponible.</p>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <input placeholder="N° reçu *" value={recue.numero_recu}
                     onChange={e => setRecue({ ...recue, numero_recu: e.target.value })}
-                    className="p-2 border rounded text-sm" />
+                    className="p-2 rounded text-sm" />
                   <input type="number" step="0.001" placeholder="Montant" value={recue.montant}
                     onChange={e => setRecue({ ...recue, montant: e.target.value })}
-                    className="p-2 border rounded text-sm" />
+                    className="p-2 rounded text-sm" />
                   <input type="date" value={recue.date_recu}
                     onChange={e => setRecue({ ...recue, date_recu: e.target.value })}
-                    className="p-2 border rounded text-sm" />
+                    className="p-2 rounded text-sm" />
                   <input placeholder="Description" value={recue.description}
                     onChange={e => setRecue({ ...recue, description: e.target.value })}
-                    className="p-2 border rounded text-sm" />
+                    className="p-2 rounded text-sm" />
                 </div>
-                <div className="mb-2">
-                  <label className="block text-xs text-gray-600 mb-1">PDF du reçu (max 700KB)</label>
+                <div className="mb-3">
+                  <label className="cf-label block mb-1">PDF du reçu (max 700KB)</label>
                   <input type="file" accept=".pdf" disabled={busy}
                     onChange={e => setPdfFile(e.target.files?.[0] || null)}
                     className="block w-full text-xs" />
                 </div>
-                <button onClick={addRecue} disabled={busy}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm mb-3">
-                  {busy ? 'En cours...' : 'Ajouter le reçu'}
+                <button onClick={addRecue} disabled={busy} className="cf-btn cf-btn-success cf-btn-block mb-3">
+                  {busy ? 'En cours...' : 'Ajouter le reçu →'}
                 </button>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {recues.map(r => (
-                    <div key={r.id} className="flex items-center justify-between p-2 border rounded">
-                      <div>
-                        <div className="text-sm font-medium">RCUE n°{r.numero_recu} · {r.montant ?? '—'} TND</div>
-                        <div className="text-xs text-gray-500">
+                    <div key={r.id}
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200 bg-white">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold">RCUE n°{r.numero_recu} · {r.montant ?? '—'} TND</div>
+                        <div className="text-xs cf-muted">
                           {r.date_recu || '—'} {r.description ? '· ' + r.description : ''}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs cf-muted">
                           {r.pdf_id ? `📄 ${r.pdf_name} · par ${r.pdf_uploaded_by || '—'}` : '⚠️ sans PDF'}
                         </div>
                       </div>
                       {r.pdf_id && (
                         <button onClick={() => download(`${API_URL}/api/recues/${r.id}/pdf`, r.pdf_name || 'recue.pdf')}
-                          className="px-2 py-1 bg-green-600 text-white rounded text-xs">PDF</button>
+                          className="cf-btn cf-btn-success cf-btn-sm whitespace-nowrap">PDF</button>
                       )}
                     </div>
                   ))}
-                  {recues.length === 0 && <div className="text-sm text-gray-500">Aucun reçu.</div>}
+                  {recues.length === 0 && <div className="cf-empty">Aucun reçu ajouté.</div>}
                 </div>
               </div>
             </>

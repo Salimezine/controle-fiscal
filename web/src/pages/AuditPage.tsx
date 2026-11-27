@@ -79,61 +79,67 @@ export default function AuditPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
+      <div className="cf-page-head">
         <div>
-          <h1 className="text-2xl font-bold">🔍 Audit — contrôle Expert</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Chaque action est enregistrée automatiquement : qui, quand, quelle société, quel dossier, quel fichier.
+          <h1 className="cf-page-title">🔍 Audit — contrôle Expert</h1>
+          <p className="cf-page-sub">
+            Chaque action est tracée automatiquement : qui, quand, quelle société, quel dossier, quel fichier.
           </p>
         </div>
-        <button onClick={exportCsv} disabled={filtered.length === 0}
-          className="px-3 py-2 border rounded text-sm hover:bg-gray-50 disabled:opacity-50">
+        <button onClick={exportCsv} disabled={filtered.length === 0} className="cf-btn cf-btn-ghost cf-btn-sm">
           ⬇️ Exporter CSV
         </button>
       </div>
 
-      {error && <div className="mb-4 p-2 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
+      {error && <div className="cf-alert cf-alert-error mb-4">{error}</div>}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        {stats.map(s => (
-          <div key={s.label} className="bg-white rounded-lg shadow p-3">
-            <div className="text-xl font-bold">{loading ? '…' : s.value}</div>
-            <div className="text-xs text-gray-600">{s.label}</div>
+        {stats.map((s, i) => (
+          <div key={s.label} className="cf-stat">
+            <span className="cf-stat-icon">{['📚', '📅', '📎', '📁'][i]}</span>
+            <span>
+              <span className="cf-stat-value block">{loading ? '…' : s.value}</span>
+              <span className="cf-stat-label">{s.label}</span>
+            </span>
           </div>
         ))}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
+      <div className="cf-card p-5">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-4">
           <input type="search" placeholder="🔍 Rechercher..." value={search}
-            onChange={e => setSearch(e.target.value)} className="p-2 border rounded text-sm" />
-          <select value={fUser} onChange={e => setFUser(e.target.value)} className="p-2 border rounded text-sm">
+            onChange={e => setSearch(e.target.value)} className="p-2 rounded text-sm" />
+          <select value={fUser} onChange={e => setFUser(e.target.value)} className="p-2 rounded text-sm">
             <option value="">Tous les utilisateurs</option>
             {users.map(u => <option key={u.id} value={u.label}>{u.label}</option>)}
           </select>
-          <select value={fAction} onChange={e => setFAction(e.target.value)} className="p-2 border rounded text-sm">
+          <select value={fAction} onChange={e => setFAction(e.target.value)} className="p-2 rounded text-sm">
             <option value="">Toutes les actions</option>
             {Object.entries(ACTION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-          <select value={fSoc} onChange={e => setFSoc(e.target.value)} className="p-2 border rounded text-sm">
+          <select value={fSoc} onChange={e => setFSoc(e.target.value)} className="p-2 rounded text-sm">
             <option value="">Toutes les sociétés</option>
             {societes.map(s => <option key={s.id} value={s.label}>{s.label}</option>)}
           </select>
-          <select value={period} onChange={e => setPeriod(e.target.value)} className="p-2 border rounded text-sm">
+          <select value={period} onChange={e => setPeriod(e.target.value)} className="p-2 rounded text-sm">
             <option value="all">Toute la période</option>
             <option value="today">Aujourd'hui</option>
             <option value="week">7 derniers jours</option>
           </select>
         </div>
 
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold">Journal des actions ({filtered.length})</h2>
-          <button onClick={reset} className="text-xs text-blue-600 hover:underline">Réinitialiser les filtres</button>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="cf-section-title flex items-center gap-2">
+            Journal des actions <span className="cf-badge cf-badge-blue">{filtered.length}</span>
+          </h2>
+          <button onClick={reset} className="text-xs font-semibold text-blue-700 hover:underline">
+            Réinitialiser les filtres
+          </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100">
+        <div className="cf-table-scroll">
+          <table className="cf-table">
+            <thead>
               <tr>
                 <th className="text-left p-2 whitespace-nowrap">Date / heure</th>
                 <th className="text-left p-2">Utilisateur</th>
@@ -145,30 +151,29 @@ export default function AuditPage() {
             </thead>
             <tbody>
               {filtered.map(e => (
-                <tr key={e.id} className="border-b hover:bg-gray-50 align-top">
-                  <td className="p-2 whitespace-nowrap text-gray-600">{formatDate(e.created_at)}</td>
-                  <td className="p-2">
-                    <div className="font-medium">{e.user_name}</div>
-                    <div className="text-xs text-gray-500">{e.role === 'admin' ? 'Expert' : 'Comptable'}</div>
+                <tr key={e.id} className="align-top">
+                  <td className="whitespace-nowrap cf-muted">{formatDate(e.created_at)}</td>
+                  <td>
+                    <div className="font-semibold">{e.user_name}</div>
+                    <div className="text-xs cf-muted">{e.role === 'admin' ? 'Expert' : 'Comptable'}</div>
                   </td>
-                  <td className="p-2">
-                    <span className={`px-2 py-1 rounded text-xs whitespace-nowrap ${actionStyle(e.action)}`}>
-                      {actionLabel(e.action)}
-                    </span>
+                  <td>
+                    <span className={`cf-badge ${actionStyle(e.action)}`}>{actionLabel(e.action)}</span>
                   </td>
-                  <td className="p-2">{e.societe_nom || '—'}</td>
-                  <td className="p-2">{e.travail_titre || '—'}</td>
-                  <td className="p-2 text-gray-600">{e.details || '—'}</td>
+                  <td>{e.societe_nom || '—'}</td>
+                  <td>{e.travail_titre || '—'}</td>
+                  <td className="cf-muted">{e.details || '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {loading && <div className="p-3 text-sm text-gray-500">Chargement du journal...</div>}
+        {loading && <div className="p-3 text-sm cf-muted">Chargement du journal...</div>}
         {!loading && !error && filtered.length === 0 && (
-          <div className="p-4 text-center text-sm text-gray-500">
-            Aucune action pour ces filtres. Les actions apparaissent dès qu’un dossier ou un PDF est ajouté.
+          <div className="cf-empty mt-3">
+            <b>Aucune action pour ces filtres</b>
+            Les actions apparaissent dès qu’un dossier ou un PDF est ajouté.
           </div>
         )}
       </div>

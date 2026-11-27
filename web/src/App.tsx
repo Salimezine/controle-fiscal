@@ -15,46 +15,52 @@ import { API_URL } from './lib/api';
 import { getSession, clearSession, type AuthUser } from './lib/auth';
 
 function Layout({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+  const initial = (user.full_name || 'U').trim().charAt(0).toUpperCase();
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex gap-1 items-center flex-wrap">
-          {[
-            { to: '/', label: '🏠 Accueil' },
-            { to: '/dmi', label: '📄 DMI' },
-            { to: '/ap', label: '🛒 AP' },
-            { to: '/cnss', label: '🏥 CNSS' },
-            { to: '/is', label: '💼 IS' },
-            { to: '/societes', label: '🏢 Sociétés' },
-            { to: '/comptes', label: '👥 Comptes' },
-            ...(user.role === 'admin'
-              ? [{ to: '/audit', label: '🔍 Audit' }, { to: '/objectifs', label: '🎯 Objectifs' }]
-              : [])
-          ].map(item => (
-            <NavLink key={item.to} to={item.to} end={item.to === '/'}
-              className={({ isActive }) =>
-                `px-3 py-2 rounded-lg text-sm ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`
-              }>
-              {item.label}
-            </NavLink>
-          ))}
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm text-gray-700">
-              {user.full_name}
-              <span className="ml-2 px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+    <div className="cf-shell">
+      <header className="cf-topbar">
+        <div className="cf-topbar-inner">
+          <a href="/" className="cf-brand">
+            <span className="cf-logo">✓</span>
+            <span>
+              CONTROLE FISCAL
+              <small>CONTRÔLE · PDF · TRAÇABILITÉ</small>
+            </span>
+          </a>
+          <nav className="cf-nav">
+            {[
+              { to: '/', label: 'Accueil', icon: '🏠' },
+              { to: '/dmi', label: 'DMI', icon: '📄' },
+              { to: '/ap', label: 'AP', icon: '🛒' },
+              { to: '/cnss', label: 'CNSS', icon: '🏥' },
+              { to: '/is', label: 'IS', icon: '💼' },
+              { to: '/societes', label: 'Sociétés', icon: '🏢' },
+              { to: '/comptes', label: 'Comptes', icon: '👥' },
+              ...(user.role === 'admin'
+                ? [{ to: '/audit', label: 'Audit', icon: '🔍' }, { to: '/objectifs', label: 'Objectifs', icon: '🎯' }]
+                : [])
+            ].map(item => (
+              <NavLink key={item.to} to={item.to} end={item.to === '/'}
+                className={({ isActive }) => isActive ? 'active' : ''}>
+                <span aria-hidden>{item.icon}</span> {item.label}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="cf-user">
+            <span className="cf-avatar">{initial}</span>
+            <span className="text-sm">
+              <span className="font-semibold">{user.full_name}</span>
+              <span className={`cf-badge ml-2 ${user.role === 'admin' ? 'cf-badge-purple' : 'cf-badge-blue'}`}>
                 {user.role === 'admin' ? 'Expert' : 'Comptable'}
               </span>
             </span>
-            <button
-              onClick={onLogout}
-              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-100"
-            >
+            <button onClick={onLogout} className="cf-btn cf-btn-ghost cf-btn-sm">
               Déconnexion
             </button>
           </div>
         </div>
-      </nav>
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      </header>
+      <main className="cf-main">
         <Outlet />
       </main>
     </div>

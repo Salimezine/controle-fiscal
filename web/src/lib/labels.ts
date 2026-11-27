@@ -1,6 +1,7 @@
 // Libellés clairs pour le journal d'audit (partagés Accueil / Audit).
 export const ACTION_LABELS: Record<string, string> = {
   creation_dossier: 'Dossier créé',
+  creation_dossier_auto: 'Dossier créé auto (1er janvier)',
   ajout_piece: 'PDF ajouté',
   ajout_recu: 'Reçu ajouté',
   ajout_recu_pdf: 'Reçu + PDF ajoutés',
@@ -14,11 +15,11 @@ export const ACTION_LABELS: Record<string, string> = {
 export const actionLabel = (action: string) => ACTION_LABELS[action] || action;
 
 export const actionStyle = (action: string) => {
-  if (action.includes('pdf') || action === 'ajout_piece') return 'bg-green-100 text-green-700';
-  if (action.includes('dossier')) return 'bg-blue-100 text-blue-700';
-  if (action.includes('compte')) return 'bg-purple-100 text-purple-700';
-  if (action.includes('objectif')) return 'bg-orange-100 text-orange-700';
-  return 'bg-gray-100 text-gray-700';
+  if (action.includes('pdf') || action === 'ajout_piece') return 'cf-badge-green';
+  if (action.includes('dossier')) return 'cf-badge-blue';
+  if (action.includes('compte')) return 'cf-badge-purple';
+  if (action.includes('objectif')) return 'cf-badge-amber';
+  return 'cf-badge-gray';
 };
 
 export const formatDate = (value: string) => {

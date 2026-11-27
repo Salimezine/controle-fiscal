@@ -82,41 +82,39 @@ export default function ObjectifsPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
+      <div className="cf-page-head">
         <div>
-          <h1 className="text-2xl font-bold">🎯 Objectifs annuels</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Nombre de dossiers à traiter par type et par année. Modification réservée à l’expert.
+          <h1 className="cf-page-title">🎯 Objectifs annuels</h1>
+          <p className="cf-page-sub">
+            Objectifs globaux par type et par année. Les objectifs détaillés par société sont plus bas.
           </p>
         </div>
-        <a href="/" className="px-3 py-2 border rounded text-sm hover:bg-gray-50">← Accueil</a>
+        <a href="/" className="cf-btn cf-btn-ghost cf-btn-sm">← Accueil</a>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <div className="flex items-end gap-2 flex-wrap">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Année</label>
+      <div className="cf-card p-5 mb-4">
+        <div className="cf-toolbar">
+          <div className="cf-field">
+            <label className="cf-label">📅 Année</label>
             <select value={annee} onChange={e => setAnnee(Number(e.target.value))}
-              className="p-2 border rounded text-sm">
+              className="p-2 rounded text-sm w-28">
               {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
-          <div className="ml-auto text-sm text-gray-600">
-            Année affichée : <b>{annee}</b>
-          </div>
+          <span className="cf-badge cf-badge-blue">{annee}</span>
         </div>
-        <p className="text-xs text-gray-500 mt-3">
-          Le « Réalisé » compte les dossiers ayant au moins un PDF déposé pendant l’année
-          (pièce justificative ou reçu RCUE). Les dossiers créés sont affichés à côté pour info.
-        </p>
+        <div className="cf-alert cf-alert-info mt-4 block">
+          Le « Réalisé » compte les <b>PDF déposés</b> pendant l’année (pièces justificatives et reçus RCUE).
+          Les dossiers créés sont affichés à côté pour information.
+        </div>
       </div>
 
-      {error && <div className="mb-4 p-2 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
-      {success && <div className="mb-4 p-2 rounded bg-green-50 text-green-700 text-sm">✅ {success}</div>}
+      {error && <div className="cf-alert cf-alert-error mb-4">{error}</div>}
+      {success && <div className="cf-alert cf-alert-success mb-4">✅ {success}</div>}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
+      <div className="cf-card overflow-hidden mb-4">
+        <table className="cf-table">
+          <thead>
             <tr>
               <th className="text-left p-3">Type</th>
               <th className="text-left p-3">Objectif {annee}</th>
@@ -128,39 +126,39 @@ export default function ObjectifsPage() {
           </thead>
           <tbody>
             {rows.map(o => (
-              <tr key={o.type_travail} className="border-b hover:bg-gray-50">
-                <td className="p-3 font-medium">{ICONS[o.type_travail]} {o.type_travail}</td>
-                <td className="p-3">
+              <tr key={o.type_travail}>
+                <td className="font-semibold">{ICONS[o.type_travail]} {o.type_travail}</td>
+                <td>
                   <input type="number" min="0" max="9999"
                     value={form[o.type_travail] ?? ''}
                     onChange={e => setForm({ ...form, [o.type_travail]: e.target.value })}
-                    className="w-24 p-2 border rounded text-sm" />
+                    className="w-24 p-2 rounded text-sm text-center font-semibold" />
                 </td>
-                <td className="p-3 font-semibold">{o.realise}</td>
-                <td className="p-3 text-gray-600">{o.dossiers_crees}</td>
-                <td className="p-3">{o.reste}</td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-32 bg-gray-200 rounded-full h-2">
-                      <div className={`h-2 rounded-full ${o.pourcent >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
-                        style={{ width: `${o.pourcent}%` }} />
+                <td className="font-bold text-blue-700">{o.realise}</td>
+                <td className="cf-muted">{o.dossiers_crees}</td>
+                <td>{o.reste}</td>
+                <td>
+                  <div className="flex items-center gap-3 min-w-[180px]">
+                    <div className={`cf-progress flex-1 ${o.pourcent >= 100 ? 'is-done' : ''}`}>
+                      <span style={{ width: `${o.pourcent}%` }} />
                     </div>
-                    <span className="text-xs text-gray-600">{o.pourcent}%</span>
+                    <span className={`text-xs font-bold ${o.pourcent >= 100 ? 'text-green-700' : 'cf-muted'}`}>
+                      {o.pourcent}%
+                    </span>
                   </div>
                 </td>
               </tr>
             ))}
-            {loading && <tr><td colSpan={6} className="p-4 text-gray-500">Chargement...</td></tr>}
+            {loading && <tr><td colSpan={6} className="p-4 cf-muted">Chargement...</td></tr>}
           </tbody>
         </table>
       </div>
 
-      <div className="mt-4 flex items-center gap-3 flex-wrap">
-        <button onClick={save} disabled={busy || rows.length === 0}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm">
+      <div className="flex items-center gap-3 flex-wrap mb-6">
+        <button onClick={save} disabled={busy || rows.length === 0} className="cf-btn cf-btn-primary">
           {busy ? 'Enregistrement...' : '💾 Enregistrer les objectifs'}
         </button>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs cf-muted">
           Chaque modification est enregistrée dans l’Audit avec votre nom.
         </span>
       </div>

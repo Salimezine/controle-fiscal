@@ -106,7 +106,7 @@ export default function AccueilPage() {
   );
   const sansCnss = useMemo(() => societesSansCNSS(dossiersAnnee), [dossiersAnnee]);
   const statutStyle = (s: string) =>
-    s === 'termine' || s === 'valide' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+    s === 'termine' || s === 'valide' ? 'cf-badge-green' : 'cf-badge-amber';
 
   const stats = [
     { label: 'Sociétés', value: societes.length, href: '/societes', icon: '🏢' },
@@ -122,80 +122,83 @@ export default function AccueilPage() {
 
   return (
     <div>
-      <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+      <div className="cf-page-head">
         <div>
-          <h1 className="text-2xl font-bold">👋 Bonjour {session?.user.full_name}</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            {isAdmin ? 'Espace Expert — contrôle et traçabilité' : 'Espace Comptable — vos dossiers et vos PDF'}
+          <h1 className="cf-page-title">👋 Bonjour {session?.user.full_name}</h1>
+          <p className="cf-page-sub">
+            {isAdmin
+              ? 'Espace Expert — vue complète, contrôle et traçabilité.'
+              : 'Espace Comptable — vos dossiers, vos PDF et vos reçus.'}
           </p>
         </div>
-        <span className="px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+        <span className={`cf-badge ${isAdmin ? 'cf-badge-purple' : 'cf-badge-blue'}`}>
           {isAdmin ? 'Expert / Admin' : 'Comptable'}
         </span>
       </div>
 
-      <div className="mb-4 p-2 rounded bg-green-50 text-green-700 text-sm">
-        ✅ Données conservées localement — aucune synchronisation avec EUREX.
+      <div className="cf-alert cf-alert-success mb-4">
+        <span>✅</span>
+        <span><b>Données locales.</b> Aucune synchronisation avec EUREX — la D1 locale est la source de vérité.</span>
       </div>
-      {error && <div className="mb-4 p-2 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
+      {error && <div className="cf-alert cf-alert-error mb-4">{error}</div>}
 
-      <div className="mb-4 flex items-center gap-2">
-        <label htmlFor="annee-accueil" className="text-sm font-medium text-gray-700">📅 Année</label>
-        <select id="annee-accueil" value={annee}
-          onChange={e => setAnnee(Number(e.target.value))}
-          className="p-2 border rounded text-sm bg-white">
-          {(annees.length ? annees : [annee]).map(a => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </select>
-        <span className="text-xs text-gray-500">
-          Objectifs, activité, dossiers et compteurs affichés pour {annee}.
-        </span>
+      <div className="cf-card p-4 mb-5">
+        <div className="cf-toolbar">
+          <div className="cf-field">
+            <label htmlFor="annee-accueil" className="cf-label">📅 Année</label>
+            <select id="annee-accueil" value={annee}
+              onChange={e => setAnnee(Number(e.target.value))}
+              className="p-2 rounded text-sm bg-white w-28">
+              {(annees.length ? annees : [annee]).map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </div>
+          <span className="cf-badge cf-badge-blue">{annee}</span>
+          <span className="text-xs cf-muted">
+            Objectifs, activité, dossiers et compteurs affichés pour cette année.
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {stats.map(s => (
-          <a key={s.label} href={s.href}
-            className="bg-white rounded-lg shadow p-4 hover:shadow-md hover:border-blue-300 border border-transparent transition">
-            <div className="text-2xl">{s.icon}</div>
-            <div className="text-2xl font-bold mt-1">{loading ? '…' : s.value}</div>
-            <div className="text-xs text-gray-600">{s.label}</div>
+          <a key={s.label} href={s.href} className="cf-stat">
+            <span className="cf-stat-icon">{s.icon}</span>
+            <span className="min-w-0">
+              <span className="cf-stat-value block">{loading ? '…' : s.value}</span>
+              <span className="cf-stat-label">{s.label}</span>
+            </span>
           </a>
         ))}
       </div>
 
       {objectifs.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-4 mb-4">
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-            <h2 className="text-lg font-semibold">🎯 Objectifs {annee} — dossiers avec PDF</h2>
-            {isAdmin ? (
-              <a href="/objectifs" className="text-sm text-blue-600 hover:underline">
-                Modifier les objectifs →
-              </a>
-            ) : (
-              <a href="/objectifs" className="text-sm text-blue-600 hover:underline">
-                Voir par société →
-              </a>
-            )}
+        <div className="cf-card p-5 mb-4">
+          <div className="cf-page-head mb-4">
+            <div>
+              <h2 className="cf-section-title">🎯 Objectifs {annee} — PDF déposés</h2>
+              <p className="cf-section-sub">Le « réalisé » compte les pièces et reçus déposés pendant l’année.</p>
+            </div>
+            <a href="/objectifs" className="cf-btn cf-btn-soft cf-btn-sm">
+              {isAdmin ? 'Modifier les objectifs →' : 'Voir par société →'}
+            </a>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
             {objectifs.map(o => (
               <div key={o.type_travail}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{ICONS[o.type_travail]} {o.type_travail}</span>
-                  <span className="text-gray-600">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="font-semibold">{ICONS[o.type_travail]} {o.type_travail}</span>
+                  <span className={o.pourcent >= 100 ? 'text-green-700 font-bold' : 'cf-muted'}>
                     <b>{o.realise}</b> / {o.objectif > 0 ? o.objectif : '—'}
-                    {o.objectif > 0 && ` (${o.pourcent}%)`}
+                    {o.objectif > 0 && ` · ${o.pourcent}%`}
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                  <div
-                    className={`h-2 rounded-full ${o.pourcent >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
-                    style={{ width: `${o.pourcent}%` }}
-                  />
+                <div className={`cf-progress ${o.pourcent >= 100 ? 'is-done' : ''}`}>
+                  <span style={{ width: `${o.pourcent}%` }} />
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {o.dossiers_crees} dossier(s) créé(s) · reste {o.reste}
+                <div className="text-xs cf-muted mt-1.5">
+                  {o.dossiers_crees} dossier(s) créé(s) · reste <b>{o.reste}</b>
                 </div>
               </div>
             ))}
@@ -205,29 +208,31 @@ export default function AccueilPage() {
 
       {isAdmin && <ActiviteComptables annee={annee} />}
 
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
+      <div className="cf-card p-5 mb-4">
+        <div className="cf-page-head mb-4">
           <div>
-            <h2 className="text-lg font-semibold">📁 Tous les dossiers ({allDossiers.length})</h2>
-            <p className="text-xs text-gray-500">
-              {isAdmin ? 'Expert : tous les dossiers.' : 'Comptable : vos dossiers attribués.'}
+            <h2 className="cf-section-title flex items-center gap-2">
+              📁 Tous les dossiers <span className="cf-badge cf-badge-blue">{allDossiers.length}</span>
+            </h2>
+            <p className="cf-section-sub">
+              {isAdmin ? 'Expert : tous les dossiers de l’année.' : 'Comptable : vos dossiers attribués.'}
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="cf-toolbar">
             <input type="search" placeholder="🔍 Société / titre / comptable / réf."
               value={searchDossier} onChange={e => setSearchDossier(e.target.value)}
-              className="p-2 border rounded text-sm w-64" />
+              className="p-2 rounded text-sm w-64" />
             <select value={filterType} onChange={e => setFilterType(e.target.value)}
-              className="p-2 border rounded text-sm">
+              className="p-2 rounded text-sm">
               <option value="">Tous les types</option>
               {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100">
+        <div className="cf-table-scroll">
+          <table className="cf-table">
+            <thead>
               <tr>
                 <th className="text-left p-2 whitespace-nowrap">Type</th>
                 <th className="text-left p-2">Dossier</th>
@@ -243,24 +248,24 @@ export default function AccueilPage() {
             </thead>
             <tbody>
               {allDossiers.map(d => (
-                <tr key={d.id} className="border-b hover:bg-gray-50">
-                  <td className="p-2 font-medium whitespace-nowrap">{ICONS[d.type_travail]} {d.type_travail}</td>
-                  <td className="p-2">{d.titre}</td>
-                  <td className="p-2">{socNom(d.societe_id)}</td>
-                  <td className="p-2">{d.comptable_name || 'Non attribué'}</td>
-                  <td className="p-2 text-gray-600">{d.reference || '—'}</td>
-                  <td className="p-2 whitespace-nowrap">📎 {d.nb_pieces || 0} · 🧾 {d.nb_recues || 0}</td>
-                  <td className="p-2 whitespace-nowrap text-gray-600" title={`${d.duree_minutes || 0} min`}>
+                <tr key={d.id}>
+                  <td className="font-medium whitespace-nowrap">{ICONS[d.type_travail]} {d.type_travail}</td>
+                  <td className="font-medium">{d.titre}</td>
+                  <td>{socNom(d.societe_id)}</td>
+                  <td>{d.comptable_name || <span className="cf-badge cf-badge-amber">Non attribué</span>}</td>
+                  <td className="cf-muted">{d.reference || '—'}</td>
+                  <td className="whitespace-nowrap">📎 {d.nb_pieces || 0} · 🧾 {d.nb_recues || 0}</td>
+                  <td className="whitespace-nowrap cf-muted" title={`${d.duree_minutes || 0} min`}>
                     ⏱ {formatDuree(d.duree_minutes || 0)}
                   </td>
-                  <td className="p-2">
-                    <span className={`px-2 py-0.5 rounded text-xs ${statutStyle(d.statut)}`}>{d.statut}</span>
+                  <td>
+                    <span className={`cf-badge ${statutStyle(d.statut)}`}>{d.statut}</span>
                   </td>
-                  <td className="p-2 whitespace-nowrap text-gray-600">{formatDate(d.created_at)}</td>
-                  <td className="p-2">
+                  <td className="whitespace-nowrap cf-muted">{formatDate(d.created_at)}</td>
+                  <td>
                     <a href={`/${d.type_travail.toLowerCase()}?dossier=${d.id}`}
-                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 whitespace-nowrap">
-                      Ouvrir
+                      className="cf-btn cf-btn-primary cf-btn-sm whitespace-nowrap">
+                      Ouvrir →
                     </a>
                   </td>
                 </tr>
@@ -269,33 +274,35 @@ export default function AccueilPage() {
           </table>
         </div>
 
-        {loading && <div className="p-3 text-sm text-gray-500">Chargement des dossiers...</div>}
+        {loading && <div className="p-3 text-sm cf-muted">Chargement des dossiers...</div>}
         {!loading && allDossiers.length === 0 && (
-          <div className="p-4 text-center text-sm text-gray-500">
-            Aucun dossier. Créez-en un depuis DMI / AP / CNSS / IS.
+          <div className="cf-empty mt-3">
+            <b>Aucun dossier pour {annee}</b>
+            Créez-en un depuis DMI / AP / CNSS / IS, ou changez l’année.
           </div>
         )}
       </div>
 
       {sansCnss.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-4 mb-4">
-          <div className="mb-3">
-            <h2 className="text-lg font-semibold">⚠️ Sociétés sans CNSS ({sansCnss.length})</h2>
-            <p className="text-xs text-gray-500 mt-1">
-              Elles ont déjà DMI / IS / AP mais aucun dossier CNSS. Cliquer sur « Créer CNSS » pour le rajouter.
-            </p>
+        <div className="cf-card p-5 mb-4">
+          <div className="cf-alert cf-alert-warn mb-4">
+            <span>⚠️</span>
+            <span>
+              <b>Sociétés sans CNSS ({sansCnss.length}).</b> Elles ont déjà DMI / IS / AP mais aucun dossier CNSS —
+              cliquez sur « Créer CNSS » pour le rajouter.
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {sansCnss.map(g => (
-              <div key={g.societe_id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+              <div key={g.societe_id}
+                className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/60">
                 <div className="min-w-0">
-                  <div className="font-medium truncate">{socNom(g.societe_id)}</div>
-                  <div className="text-xs text-gray-500">
+                  <div className="font-semibold truncate">{socNom(g.societe_id)}</div>
+                  <div className="text-xs cf-muted">
                     Déjà : {g.presents.map(t => `${ICONS[t]} ${t}`).join(' · ')}
                   </div>
                 </div>
-                <a href={`/cnss?societe=${g.societe_id}`}
-                  className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 whitespace-nowrap">
+                <a href={`/cnss?societe=${g.societe_id}`} className="cf-btn cf-btn-primary cf-btn-sm whitespace-nowrap">
                   ➕ Créer CNSS
                 </a>
               </div>
@@ -305,62 +312,62 @@ export default function AccueilPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold mb-3">🚀 Démarrage rapide</h2>
+        <div className="cf-card p-5">
+          <h2 className="cf-section-title mb-4">🚀 Démarrage rapide</h2>
           <div className="grid grid-cols-2 gap-2">
             {TYPES.map(t => (
               <a key={t} href={`/${t.toLowerCase()}`}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                <span className="font-medium">{ICONS[t]} {t}</span>
-                <span className="text-xs text-gray-500">{dossiers.filter(d => d.type_travail === t).length} dossier(s)</span>
+                className="flex items-center justify-between gap-2 p-3 rounded-xl border border-slate-200 bg-white transition hover:border-blue-300 hover:bg-blue-50/60">
+                <span className="font-semibold">{ICONS[t]} {t}</span>
+                <span className="cf-badge cf-badge-gray">
+                  {dossiers.filter(d => d.type_travail === t).length}
+                </span>
               </a>
             ))}
           </div>
-          <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+          <div className="cf-alert cf-alert-info mt-4 block">
             <b>Comment ça marche ?</b>
-            <ol className="list-decimal ml-5 mt-1 space-y-1">
+            <ol className="list-decimal ml-5 mt-2 space-y-1">
               <li>Choisir la société et créer le dossier.</li>
-              <li>Cliquer dessus, ajouter le PDF ou le reçu RCUE.</li>
-              <li>L’expert voit la trace dans <a href="/audit" className="underline">Audit</a>.</li>
+              <li>L’ouvrir, ajouter le PDF ou le reçu RCUE.</li>
+              <li>L’expert voit la trace dans <a href="/audit" className="font-semibold underline">Audit</a>.</li>
             </ol>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold mb-3">
+        <div className="cf-card p-5">
+          <h2 className="cf-section-title mb-4">
             {isAdmin ? '🕒 Dernières actions (Audit)' : '📁 Mes derniers dossiers'}
           </h2>
           {isAdmin ? (
             <>
               {audit.slice(0, 5).map(e => (
-                <div key={e.id} className="border-b py-2 text-sm last:border-0">
+                <div key={e.id} className="py-2.5 border-b border-slate-100 last:border-0">
                   <div className="flex items-center justify-between gap-2">
-                    <b>{e.user_name}</b>
-                    <span className={`px-2 py-0.5 rounded text-xs ${actionStyle(e.action)}`}>
-                      {actionLabel(e.action)}
-                    </span>
+                    <b className="text-sm">{e.user_name}</b>
+                    <span className={`cf-badge ${actionStyle(e.action)}`}>{actionLabel(e.action)}</span>
                   </div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs cf-muted mt-1">
                     {e.societe_nom || '—'} · {e.travail_titre || '—'} · {formatDate(e.created_at)}
                   </div>
                 </div>
               ))}
-              {audit.length === 0 && !loading && <p className="text-sm text-gray-500">Aucune action enregistrée.</p>}
-              <a href="/audit" className="inline-block mt-3 text-sm text-blue-600 hover:underline">
+              {audit.length === 0 && !loading && <div className="cf-empty">Aucune action enregistrée.</div>}
+              <a href="/audit" className="inline-block mt-3 text-sm font-semibold text-blue-700 hover:underline">
                 Voir tout le journal →
               </a>
             </>
           ) : (
             <>
               {recent.map(d => (
-                <div key={d.id} className="border-b py-2 text-sm last:border-0">
-                  <div className="font-medium">{d.titre}</div>
-                  <div className="text-xs text-gray-600">
+                <div key={d.id} className="py-2.5 border-b border-slate-100 last:border-0">
+                  <div className="font-medium text-sm">{d.titre}</div>
+                  <div className="text-xs cf-muted mt-1">
                     {d.type_travail} · {socNom(d.societe_id)} · 📎 {d.nb_pieces || 0} · 🧾 {d.nb_recues || 0}
                   </div>
                 </div>
               ))}
-              {recent.length === 0 && !loading && <p className="text-sm text-gray-500">Aucun dossier pour le moment.</p>}
+              {recent.length === 0 && !loading && <div className="cf-empty">Aucun dossier pour le moment.</div>}
             </>
           )}
         </div>

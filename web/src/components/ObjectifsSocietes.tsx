@@ -21,6 +21,7 @@ export default function ObjectifsSocietes({ annee }: { annee: number }) {
   const [form, setForm] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [search, setSearch] = useState('');
 
   const charger = async () => {
     const [objRes, socRes] = await Promise.all([
@@ -36,19 +37,19 @@ export default function ObjectifsSocietes({ annee }: { annee: number }) {
 
   useEffect(() => { charger(); }, [annee]);
 
+  const socNom = (id: string) => societes.find(s => s.id === id)?.raison_sociale || id;
+  const key = (soc: string, type: string) => `${soc}|${type}`;
+
   const parSociete = useMemo(() => {
     const map = new Map<string, Map<string, ObjectifSociete>>();
     for (const r of rows) {
       if (!map.has(r.societe_id)) map.set(r.societe_id, new Map());
       map.get(r.societe_id)!.set(r.type_travail, r);
     }
-    return [...map.entries()].sort((a, b) =>
-      (societes.find(s => s.id === a[0])?.raison_sociale || a[0])
-        .localeCompare(societes.find(s => s.id === b[0])?.raison_sociale || b[0]));
-  }, [rows, societes]);
-
-  const socNom = (id: string) => societes.find(s => s.id === id)?.raison_sociale || id;
-  const key = (soc: string, type: string) => `${soc}|${type}`;
+    return [...map.entries()]
+      .filter(([id]) => socNom(id).toLowerCase().includes(search.trim().toLowerCase()))
+      .sort((a, b) => socNom(a[0]).localeCompare(socNom(b[0])));
+  }, [rows, societes, search]);
 
   const enregistrer = async (societeId: string) => {
     setBusy(societeId);
@@ -78,30 +79,49 @@ export default function ObjectifsSocietes({ annee }: { annee: number }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 mb-4">
-      <div className="mb-3">
-        <h2 className="text-lg font-semibold">🎯 Objectifs par société — {annee}</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          1 dossier = 1 société : <b>12 DMI</b> (1/mois), <b>4 CNSS</b> (1/trimestre, sauf sociétés ayant déjà CNSS = 0),
-          <b> 3 AP</b>, <b> 1 IS</b>. Le « réalisé » compte les PDF déposés pendant l’année.
-        </p>
+    <div className="cf-card p-5 mb-4">
+      <div className="cf-page-head mb-4">
+        <div>
+          <h2 className="cf-section-title flex items-center gap-2">
+            🎯 Objectifs par société — {annee}
+            <span className="cf-badge cf-badge-blue">{parSociete.length}</span>
+          </h2>
+          <p className="cf-section-sub">
+            1 dossier = 1 société : <b>12 DMI</b> (1/mois), <b>4 CNSS</b> (1/trimestre), <b>3 AP</b>, <b>1 IS</b>.
+            Les sociétés qui ont déjà leur CNSS ont un objectif CNSS à <b>0</b> (affiché « — »).
+          </p>
+        </div>
+        <input type="search" placeholder="🔍 Filtrer une société..." value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="p-2 rounded text-sm w-56" />
       </div>
 
-      {message && <div className="mb-3 text-sm text-blue-700">{message}</div>}
+      <div className="cf-alert cf-alert-info mb-4 block">
+        Le « réalisé » compte les <b>PDF déposés</b> pendant l’année. Cliquez sur une valeur pour la modifier,
+        puis sur 💾 pour enregistrer (tracé dans l’Audit).
+      </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
+      {message && (
+        <div className={`cf-alert mb-4 ${message.startsWith('❌') ? 'cf-alert-error' : 'cf-alert-success'}`}>
+          {message}
+        </div>
+      )}
+
+      <div className="cf-table-scroll">
+        <table className="cf-table">
+          <thead>
             <tr>
-              <th className="text-left p-2">Société</th>
-              {TYPES.map(t => <th key={t} className="text-center p-2 whitespace-nowrap">{ICONS[t]} {t}</th>)}
-              {isAdmin && <th className="p-2"></th>}
+              <th className="text-left">Société</th>
+              {TYPES.map(t => <th key={t} className="text-center whitespace-nowrap">{ICONS[t]} {t}</th>)}
+              {isAdmin && <th className="text-center">Action</th>}
             </tr>
           </thead>
           <tbody>
             {parSociete.map(([societeId, types]) => (
-              <tr key={societeId} className="border-b hover:bg-gray-50">
-                <td className="p-2 font-medium max-w-[240px] truncate" title={socNom(societeId)}>{socNom(societeId)}</td>
+              <tr key={societeId}>
+                <td className="font-semibold max-w-[260px] truncate" title={socNom(societeId)}>
+                  {socNom(societeId)}
+                </td>
                 {TYPES.map(t => {
                   const r = types.get(t);
                   const objectif = form[key(societeId, t)] ?? String(r?.objectif ?? 0);
@@ -109,24 +129,33 @@ export default function ObjectifsSocietes({ annee }: { annee: number }) {
                   const obj = Number(objectif) || 0;
                   const pourcent = obj > 0 ? Math.min(100, Math.round((realise / obj) * 100)) : 0;
                   return (
-                    <td key={t} className="p-2 text-center whitespace-nowrap">
+                    <td key={t} className="text-center whitespace-nowrap">
                       {isAdmin ? (
                         <input type="number" min="0" max="9999" value={objectif}
                           onChange={e => setForm({ ...form, [key(societeId, t)]: e.target.value })}
-                          className="w-16 p-1 border rounded text-center text-sm" />
+                          className="w-16 p-1 rounded text-center text-sm font-semibold mb-1" />
                       ) : (
-                        <span className="font-semibold">{obj}</span>
+                        <span className="font-bold">{obj || '—'}</span>
                       )}
-                      <div className={`text-xs ${realise >= obj && obj > 0 ? 'text-green-700' : 'text-gray-500'}`}>
-                        {realise} / {obj || '—'} ({pourcent}%)
-                      </div>
+                      {obj > 0 ? (
+                        <>
+                          <div className={`text-xs font-semibold ${pourcent >= 100 ? 'text-green-700' : 'cf-muted'}`}>
+                            {realise} / {obj} · {pourcent}%
+                          </div>
+                          <div className={`cf-progress cf-progress-sm mt-1 ${pourcent >= 100 ? 'is-done' : ''}`}>
+                            <span style={{ width: `${pourcent}%` }} />
+                          </div>
+                        </>
+                      ) : (
+                        <span className="cf-badge cf-badge-gray" title="Objectif 0 = pas à faire">—</span>
+                      )}
                     </td>
                   );
                 })}
                 {isAdmin && (
-                  <td className="p-2 text-right">
+                  <td className="text-center">
                     <button onClick={() => enregistrer(societeId)} disabled={busy === societeId}
-                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50">
+                      className="cf-btn cf-btn-primary cf-btn-sm" title="Enregistrer cette société">
                       {busy === societeId ? '…' : '💾'}
                     </button>
                   </td>
@@ -137,11 +166,12 @@ export default function ObjectifsSocietes({ annee }: { annee: number }) {
         </table>
       </div>
       {parSociete.length === 0 && (
-        <div className="p-4 text-center text-sm text-gray-500">
-          Aucun objectif pour {annee}. Déployez le schéma ou choisissez une autre année.
+        <div className="cf-empty mt-3">
+          <b>{search ? 'Aucune société trouvée' : `Aucun objectif pour ${annee}`}</b>
+          {search ? 'Essayez un autre nom.' : 'Déployez le schéma ou choisissez une autre année.'}
         </div>
       )}
-      {isAdmin && <p className="text-xs text-gray-400 mt-2">Chaque modification est tracée dans l’Audit.</p>}
+      {isAdmin && <p className="text-xs cf-muted mt-3">Chaque modification est tracée dans l’Audit avec votre nom.</p>}
     </div>
   );
 }

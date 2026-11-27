@@ -114,15 +114,22 @@ export default function ComptesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2">👥 Comptes</h1>
-      <div className="mb-4 p-2 rounded bg-green-50 text-green-700 text-sm">
-        ✅ Mode autonome : les comptes sont conservés dans la D1 locale, aucune synchronisation avec EUREX.
+      <div className="cf-page-head">
+        <div>
+          <h1 className="cf-page-title">👥 Comptes</h1>
+          <p className="cf-page-sub">Comptes locaux, rôles et attribuations de sociétés.</p>
+        </div>
+        <span className="cf-badge cf-badge-blue">{users.length} compte(s)</span>
+      </div>
+      <div className="cf-alert cf-alert-success mb-4">
+        <span>✅</span>
+        <span><b>Mode autonome.</b> Les comptes sont conservés dans la D1 locale, aucune synchronisation avec EUREX.</span>
       </div>
 
       {isAdmin && (
-        <div className="bg-white rounded-lg shadow p-4 mb-4">
-          <h2 className="text-lg font-semibold mb-3">
-            {editingId ? 'Modifier le compte' : 'Nouveau compte'}
+        <div className="cf-card p-5 mb-4">
+          <h2 className="cf-section-title mb-4">
+            {editingId ? '✏️ Modifier le compte' : '➕ Nouveau compte'}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <input placeholder="Nom complet *" value={form.full_name}
@@ -147,12 +154,11 @@ export default function ComptesPage() {
               {societes.map(s => <option key={s.id} value={s.id}>{s.raison_sociale}</option>)}
             </select>
             <div className="flex gap-2">
-              <button onClick={save} disabled={busy}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm">
+              <button onClick={save} disabled={busy} className="cf-btn cf-btn-primary flex-1">
                 {busy ? 'En cours...' : editingId ? 'Enregistrer' : 'Créer le compte'}
               </button>
               {editingId && (
-                <button onClick={cancel} className="px-3 py-2 border rounded text-sm">Annuler</button>
+                <button onClick={cancel} className="cf-btn cf-btn-ghost">Annuler</button>
               )}
             </div>
           </div>
@@ -173,57 +179,55 @@ export default function ComptesPage() {
         </div>
       )}
 
-      {error && <div className="mb-3 p-2 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
-      {success && <div className="mb-3 p-2 rounded bg-green-50 text-green-700 text-sm">{success}</div>}
+      {error && <div className="cf-alert cf-alert-error mb-3">{error}</div>}
+      {success && <div className="cf-alert cf-alert-success mb-3">✅ {success}</div>}
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Comptes locaux ({users.length})</h2>
+      <div className="cf-card p-5">
+        <div className="cf-page-head mb-4">
+          <h2 className="cf-section-title flex items-center gap-2">
+            Comptes locaux <span className="cf-badge cf-badge-blue">{users.length}</span>
+          </h2>
           <input type="search" placeholder="🔍 Rechercher un compte..." value={search}
             onChange={e => setSearch(e.target.value)}
-            className="p-2 border rounded text-sm w-64" />
+            className="p-2 rounded text-sm w-64" />
         </div>
         <div className="max-h-[560px] overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-gray-100">
+          <table className="cf-table">
+            <thead>
               <tr>
-                <th className="text-left p-2">Nom</th>
-                <th className="text-left p-2">Email</th>
-                <th className="text-left p-2">Rôle</th>
-                <th className="text-left p-2">Sociétés</th>
-                <th className="text-left p-2">Statut</th>
-                {isAdmin && <th className="text-left p-2">Actions</th>}
+                <th>Nom</th>
+                <th>Email</th>
+                <th>Rôle</th>
+                <th>Sociétés</th>
+                <th>Statut</th>
+                {isAdmin && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {filtered.map(u => (
-                <tr key={u.id} className="border-b hover:bg-gray-50">
-                  <td className="p-2 font-medium">{u.full_name}</td>
-                  <td className="p-2 text-gray-600">{u.email}</td>
-                  <td className="p-2">
-                    <span className={`px-2 py-1 rounded text-xs ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                <tr key={u.id}>
+                  <td className="font-semibold">{u.full_name}</td>
+                  <td className="cf-muted">{u.email}</td>
+                  <td>
+                    <span className={`cf-badge ${u.role === 'admin' ? 'cf-badge-purple' : 'cf-badge-blue'}`}>
                       {u.role === 'admin' ? 'Expert / Admin' : 'Comptable'}
                     </span>
                   </td>
-                  <td className="p-2 text-gray-600 text-xs">
+                  <td className="text-xs cf-muted">
                     {u.societe_ids?.length ? socNom(u.societe_ids[0]) + (u.societe_ids.length > 1 ? ` +${u.societe_ids.length - 1}` : '') : '—'}
                   </td>
-                  <td className="p-2">
-                    <span className={`px-2 py-1 rounded text-xs ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  <td>
+                    <span className={`cf-badge ${u.is_active ? 'cf-badge-green' : 'cf-badge-red'}`}>
                       {u.is_active ? 'Actif' : 'Inactif'}
                     </span>
                   </td>
                   {isAdmin && (
-                    <td className="p-2 whitespace-nowrap">
+                    <td className="whitespace-nowrap">
                       <button onClick={() => startEdit(u)} disabled={busy || !u.is_active}
-                        className="px-2 py-1 bg-blue-600 text-white rounded text-xs mr-1 disabled:opacity-50">
-                        Modifier
-                      </button>
+                        className="cf-btn cf-btn-soft cf-btn-sm mr-1">Modifier</button>
                       {u.is_active && (
                         <button onClick={() => deactivate(u)} disabled={busy}
-                          className="px-2 py-1 bg-red-600 text-white rounded text-xs disabled:opacity-50">
-                          Désactiver
-                        </button>
+                          className="cf-btn cf-btn-danger cf-btn-sm">Désactiver</button>
                       )}
                     </td>
                   )}
@@ -231,9 +235,9 @@ export default function ComptesPage() {
               ))}
             </tbody>
           </table>
-          {loading && <div className="text-sm text-gray-500 p-3">Chargement des comptes...</div>}
+          {loading && <div className="text-sm cf-muted p-3">Chargement des comptes...</div>}
           {!loading && !error && filtered.length === 0 && (
-            <div className="text-sm text-gray-500 p-3">Aucun compte trouvé.</div>
+            <div className="cf-empty mt-3">Aucun compte trouvé.</div>
           )}
         </div>
       </div>
