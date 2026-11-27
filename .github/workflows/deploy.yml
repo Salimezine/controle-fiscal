@@ -18,13 +18,29 @@ jobs:
         run: |
           cd api
           npx wrangler d1 execute controle-fiscal-db --file=../data/schema.sql --remote --preview=false || true
+          npx wrangler d1 execute controle-fiscal-db --file=../data/seed-from-eurex.sql --remote --preview=false || true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 55d1321d8e45ed7bac839ba15d417fdd
+      - name: Set EUREX D1 token secret
+        run: cd api && echo "$EUREX_D1_TOKEN" | npx wrangler secret put EUREX_D1_TOKEN
+        env:
+          EUREX_D1_TOKEN: ${{ secrets.EUREX_D1_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 55d1321d8e45ed7bac839ba15d417fdd
+
       - name: Deploy API
         run: |
           cd api
           npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 55d1321d8e45ed7bac839ba15d417fdd
+
+      - name: Sync users and societes from EUREX
+        run: |
+          sleep 5
+          curl -sS -X POST https://controle-fiscal-api.salim-ezzine.workers.dev/api/sync/eurex
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 55d1321d8e45ed7bac839ba15d417fdd

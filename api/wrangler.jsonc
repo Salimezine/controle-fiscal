@@ -13,6 +13,8 @@
     }
   ],
   "vars": {
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "EUREX_ACCOUNT_ID": "7923ab56e04f76467ba94aa508a8f018",
+    "EUREX_DB_ID": "6505a544-f2d2-4010-9f7b-2da31edd9e93"
   }
 }

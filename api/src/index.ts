@@ -4,9 +4,11 @@
 
 interface Env {
   DB: D1Database;
-  // Binding optionnel : EUREX vit sur un autre compte Cloudflare,
-  // le D1 cross-account est impossible. Sans binding, la sync est skippee.
-  EUREX_DB?: D1Database;
+  // EUREX est sur un AUTRE compte Cloudflare : pas de binding D1 possible.
+  // On passe par l'API HTTP D1 avec un token dédié (vars wrangler).
+  EUREX_ACCOUNT_ID?: string;
+  EUREX_DB_ID?: string;
+  EUREX_D1_TOKEN?: string;
 }
 
 function json(data: any, status = 200) {
@@ -18,6 +20,55 @@ function json(data: any, status = 200) {
 
 function genId(): string {
   return crypto.randomUUID();
+}
+
+async function verifyPassword(passwordHash: string, password: string): Promise<boolean> {
+  if (!passwordHash || !passwordHash.includes(':')) return false;
+  const [salt, expected] = passwordHash.split(':');
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + password));
+  const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return hex === expected;
+}
+
+// Requête sur la D1 EUREX via l'API Cloudflare (cross-account).
+async function eurexQuery(env: Env, sql: string, params: any[] = []): Promise<any[]> {
+  if (!env.EUREX_D1_TOKEN || !env.EUREX_ACCOUNT_ID || !env.EUREX_DB_ID) return [];
+  const res = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${env.EUREX_ACCOUNT_ID}/d1/database/${env.EUREX_DB_ID}/query`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.EUREX_D1_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ sql, params })
+    }
+  );
+  const data = await res.json() as any;
+  if (!data.success) throw new Error(data.errors?.[0]?.message || 'Erreur API EUREX');
+  return data.result?.[0]?.results || [];
+}
+
+async function syncEurex(env: Env, email?: string): Promise<{ users: number; societes: number }> {
+  const societes = await eurexQuery(env, 'SELECT id, raison_sociale, matricule_fiscal, created_at FROM societes');
+  for (const s of societes) {
+    await env.DB.prepare('INSERT OR IGNORE INTO societes (id, raison_sociale, matricule_fiscal, created_at) VALUES (?, ?, ?, ?)')
+      .bind(s.id, s.raison_sociale, s.matricule_fiscal || null, s.created_at || null).run();
+  }
+  const sql = email
+    ? 'SELECT id, full_name, email, password_hash, role, role_label, is_active FROM org_users WHERE email = ? AND is_active = 1'
+    : 'SELECT id, full_name, email, password_hash, role, role_label, is_active FROM org_users WHERE is_active = 1';
+  const users = await eurexQuery(env, sql, email ? [email] : []);
+  for (const u of users) {
+    // Rôle : expert/manager -> admin, comptable -> user
+    const role = u.role === 'expert' || u.role_label === 'manager' ? 'admin' : 'user';
+    // rattachement à la société EUREX (une seule société pour l'instant)
+    const societeId = societes[0]?.id || null;
+    await env.DB.prepare(
+      'INSERT INTO users (id, societe_id, full_name, email, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, datetime(\'now\')) ON CONFLICT(id) DO UPDATE SET full_name=excluded.full_name, password_hash=excluded.password_hash, role=excluded.role, is_active=1'
+    ).bind(u.id, societeId, u.full_name, u.email, u.password_hash, role).run();
+  }
+  return { users: users.length, societes: societes.length };
 }
 
 export default {
@@ -43,55 +94,42 @@ export default {
     }
 
     // === AUTH / SYNC ===
-    // Login avec synchronisation depuis EUREX
+    // Sync manuelle : POST /api/sync/eurex
+    if (path === '/api/sync/eurex' && method === 'POST') {
+      const result = await syncEurex(env);
+      return json({ status: 'ok', ...result });
+    }
+
+    // Login avec synchronisation depuis EUREX (API HTTP cross-account)
     if (path === '/api/auth/login' && method === 'POST') {
       const body = await request.json() as any;
       const { email, password } = body;
-      
+
       if (!email) return json({ error: 'Email requis' }, 400);
-      
-      // 1. Vérifier dans CONTROLE FISCAL
+      if (!password) return json({ error: 'Mot de passe requis' }, 400);
+
       let user = await env.DB.prepare(
         'SELECT * FROM users WHERE email = ? AND is_active = 1'
       ).bind(email).first() as any;
-      
-      // 2. Si pas trouvé, vérifier dans EUREX et synchroniser
-      //    (skip si le binding EUREX_DB n'existe pas : compte Cloudflare séparé)
-      if (!user && env.EUREX_DB) {
-        const eurexUser = await env.EUREX_DB.prepare(
-          'SELECT * FROM org_users WHERE email = ? AND is_active = 1'
+
+      if (!user && env.EUREX_D1_TOKEN) {
+        await syncEurex(env, email);
+        user = await env.DB.prepare(
+          'SELECT * FROM users WHERE email = ? AND is_active = 1'
         ).bind(email).first() as any;
-        
-        if (eurexUser) {
-          // Synchroniser : créer l'utilisateur dans CONTROLE FISCAL
-          const id = genId();
-          await env.DB.prepare(
-            'INSERT OR IGNORE INTO users (id, full_name, email, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, datetime(\'now\'))'
-          ).bind(
-            id,
-            eurexUser.full_name,
-            eurexUser.email,
-            eurexUser.password_hash,
-            eurexUser.role === 'expert' || eurexUser.role === 'manager' ? 'admin' : 'user'
-          ).run();
-          
-          user = await env.DB.prepare(
-            'SELECT * FROM users WHERE email = ? AND is_active = 1'
-          ).bind(email).first() as any;
-        }
       }
-      
-      if (!user) return json({ error: 'Utilisateur non trouvé' }, 401);
-      
-      // Note: En production, vérifier le mot de passe hashé
-      // Pour l'instant, on retourne l'utilisateur sans vérification de mot de passe
-      // (à implémenter selon vos besoins de sécurité)
-      
+
+      if (!user) return json({ error: 'Identifiants incorrects' }, 401);
+      if (!await verifyPassword(user.password_hash, password)) {
+        return json({ error: 'Identifiants incorrects' }, 401);
+      }
+
       return json({
         id: user.id,
         full_name: user.full_name,
         email: user.email,
         role: user.role,
+        societe_id: user.societe_id || null,
         synced: true
       });
     }
