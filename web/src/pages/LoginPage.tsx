@@ -28,7 +28,7 @@ export default function LoginPage({ onLogin }: { onLogin: (user: AuthUser) => vo
       }
       saveSession(data, data.token);
       onLogin(data);
-      navigate('/societes', { replace: true });
+      navigate('/', { replace: true });
     } catch {
       setError('API inaccessible — réessayez.');
     } finally {
