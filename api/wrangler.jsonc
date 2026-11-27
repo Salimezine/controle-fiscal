@@ -2,6 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "controle-fiscal-api",
   "main": "src/index.ts",
+  "account_id": "55d1321d8e45ed7bac839ba15d417fdd",
   "compatibility_date": "2026-08-30",
   "compatibility_flags": ["nodejs_compat"],
   "d1_databases": [
