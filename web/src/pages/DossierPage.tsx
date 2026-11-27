@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 import { API_URL, authFetch } from '../lib/api';
 import { getSession } from '../lib/auth';
@@ -24,6 +25,7 @@ const emptyRecue = { numero_recu: '', montant: '', date_recu: '', description: '
 
 export default function DossierPage({ type, titre, icone }: { type: string; titre: string; icone: string }) {
   const isAdmin = getSession()?.user.role === 'admin';
+  const location = useLocation();
   const [travaux, setTravaux] = useState<Travail[]>([]);
   const [societes, setSocietes] = useState<Societe[]>([]);
   const [comptables, setComptables] = useState<Comptable[]>([]);
@@ -40,6 +42,19 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  const loadDossier = async (id: string) => {
+    setSelectedId(id);
+    setError('');
+    const [p, r, t] = await Promise.all([
+      authFetch(`${API_URL}/api/travaux/${id}/pieces`),
+      authFetch(`${API_URL}/api/travaux/${id}/recues`),
+      authFetch(`${API_URL}/api/travaux/${id}`)
+    ]);
+    setPieces(await p.json());
+    setRecues(await r.json());
+    setDossierMeta(await t.json());
+  };
+
   const loadTravaux = async () => {
     const res = await authFetch(`${API_URL}/api/travaux?type=${type}`);
     const data = await res.json();
@@ -55,25 +70,17 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
       .then(async ([s, t, c]) => {
         setSocietes(await s.json());
         const list = await t.json();
-        setTravaux(Array.isArray(list) ? list : []);
+        const arr: Travail[] = Array.isArray(list) ? list : [];
+        setTravaux(arr);
         if (c) setComptables(await c.json());
         setLoading(false);
+
+        // Ouverture directe depuis l'Accueil : /dmi?dossier=<id>
+        const wanted = new URLSearchParams(location.search).get('dossier');
+        if (wanted && arr.some(d => d.id === wanted)) await loadDossier(wanted);
       })
       .catch(e => { setError(String(e)); setLoading(false); });
-  }, [type, isAdmin]);
-
-  const loadDossier = async (id: string) => {
-    setSelectedId(id);
-    setError('');
-    const [p, r, t] = await Promise.all([
-      authFetch(`${API_URL}/api/travaux/${id}/pieces`),
-      authFetch(`${API_URL}/api/travaux/${id}/recues`),
-      authFetch(`${API_URL}/api/travaux/${id}`)
-    ]);
-    setPieces(await p.json());
-    setRecues(await r.json());
-    setDossierMeta(await t.json());
-  };
+  }, [type, isAdmin, location.search]);
 
   const createDossier = async () => {
     if (!dossier.societe_id || !dossier.titre) { setError('Société et titre requis.'); return; }

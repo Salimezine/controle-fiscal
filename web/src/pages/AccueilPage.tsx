@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { API_URL, authFetch } from '../lib/api';
 import { getSession } from '../lib/auth';
+import { filterDossiers } from '../lib/dossiers';
 import { actionLabel, actionStyle, formatDate } from '../lib/labels';
 
 const TYPES = ['DMI', 'AP', 'CNSS', 'IS'];
@@ -9,6 +10,7 @@ const ICONS: Record<string, string> = { DMI: '📄', AP: '🛒', CNSS: '🏥', I
 
 interface Travail {
   id: string; societe_id: string; type_travail: string; titre: string;
+  reference: string | null; statut: string;
   comptable_name: string | null; created_at: string; nb_pieces: number; nb_recues: number;
 }
 interface Event {
@@ -29,6 +31,8 @@ export default function AccueilPage() {
   const [audit, setAudit] = useState<Event[]>([]);
   const [objectifs, setObjectifs] = useState<Objectif[]>([]);
   const [annee, setAnnee] = useState(new Date().getFullYear());
+  const [searchDossier, setSearchDossier] = useState('');
+  const [filterType, setFilterType] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -60,6 +64,12 @@ export default function AccueilPage() {
 
   const socNom = (id: string) => societes.find(s => s.id === id)?.raison_sociale || '—';
   const recent = [...dossiers].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5);
+  const allDossiers = useMemo(
+    () => filterDossiers(dossiers, societes, searchDossier, filterType),
+    [dossiers, societes, searchDossier, filterType]
+  );
+  const statutStyle = (s: string) =>
+    s === 'termine' || s === 'valide' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
 
   const stats = [
     { label: 'Sociétés', value: societes.length, href: '/societes', icon: '🏢' },
@@ -139,6 +149,74 @@ export default function AccueilPage() {
           </div>
         </div>
       )}
+
+      <div className="bg-white rounded-lg shadow p-4 mb-4">
+        <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
+          <div>
+            <h2 className="text-lg font-semibold">📁 Tous les dossiers ({allDossiers.length})</h2>
+            <p className="text-xs text-gray-500">
+              {isAdmin ? 'Expert : tous les dossiers.' : 'Comptable : vos dossiers attribués.'}
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <input type="search" placeholder="🔍 Société / titre / comptable / réf."
+              value={searchDossier} onChange={e => setSearchDossier(e.target.value)}
+              className="p-2 border rounded text-sm w-64" />
+            <select value={filterType} onChange={e => setFilterType(e.target.value)}
+              className="p-2 border rounded text-sm">
+              <option value="">Tous les types</option>
+              {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="text-left p-2 whitespace-nowrap">Type</th>
+                <th className="text-left p-2">Dossier</th>
+                <th className="text-left p-2">Société</th>
+                <th className="text-left p-2">Comptable</th>
+                <th className="text-left p-2">Réf.</th>
+                <th className="text-left p-2 whitespace-nowrap">Pièces</th>
+                <th className="text-left p-2">Statut</th>
+                <th className="text-left p-2 whitespace-nowrap">Créé le</th>
+                <th className="text-left p-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {allDossiers.map(d => (
+                <tr key={d.id} className="border-b hover:bg-gray-50">
+                  <td className="p-2 font-medium whitespace-nowrap">{ICONS[d.type_travail]} {d.type_travail}</td>
+                  <td className="p-2">{d.titre}</td>
+                  <td className="p-2">{socNom(d.societe_id)}</td>
+                  <td className="p-2">{d.comptable_name || 'Non attribué'}</td>
+                  <td className="p-2 text-gray-600">{d.reference || '—'}</td>
+                  <td className="p-2 whitespace-nowrap">📎 {d.nb_pieces || 0} · 🧾 {d.nb_recues || 0}</td>
+                  <td className="p-2">
+                    <span className={`px-2 py-0.5 rounded text-xs ${statutStyle(d.statut)}`}>{d.statut}</span>
+                  </td>
+                  <td className="p-2 whitespace-nowrap text-gray-600">{formatDate(d.created_at)}</td>
+                  <td className="p-2">
+                    <a href={`/${d.type_travail.toLowerCase()}?dossier=${d.id}`}
+                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 whitespace-nowrap">
+                      Ouvrir
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {loading && <div className="p-3 text-sm text-gray-500">Chargement des dossiers...</div>}
+        {!loading && allDossiers.length === 0 && (
+          <div className="p-4 text-center text-sm text-gray-500">
+            Aucun dossier. Créez-en un depuis DMI / AP / CNSS / IS.
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-lg shadow p-4">
