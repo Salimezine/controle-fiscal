@@ -10,6 +10,7 @@ import SocietesPage from './pages/SocietesPage';
 import ComptesPage from './pages/ComptesPage';
 import LoginPage from './pages/LoginPage';
 import AuditPage from './pages/AuditPage';
+import ObjectifsPage from './pages/ObjectifsPage';
 import { API_URL } from './lib/api';
 import { getSession, clearSession, type AuthUser } from './lib/auth';
 
@@ -26,7 +27,9 @@ function Layout({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
             { to: '/is', label: '💼 IS' },
             { to: '/societes', label: '🏢 Sociétés' },
             { to: '/comptes', label: '👥 Comptes' },
-            ...(user.role === 'admin' ? [{ to: '/audit', label: '🔍 Audit' }] : [])
+            ...(user.role === 'admin'
+              ? [{ to: '/audit', label: '🔍 Audit' }, { to: '/objectifs', label: '🎯 Objectifs' }]
+              : [])
           ].map(item => (
             <NavLink key={item.to} to={item.to} end={item.to === '/'}
               className={({ isActive }) =>
@@ -100,6 +103,10 @@ export default function App() {
           <Route
             path="/audit"
             element={user?.role === 'admin' ? <AuditPage /> : <Navigate to="/" replace />}
+          />
+          <Route
+            path="/objectifs"
+            element={user?.role === 'admin' ? <ObjectifsPage /> : <Navigate to="/" replace />}
           />
         </Route>
         <Route path="*" element={<Navigate to={user ? '/' : '/login'} replace />} />

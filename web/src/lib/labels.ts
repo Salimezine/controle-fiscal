@@ -7,7 +7,8 @@ export const ACTION_LABELS: Record<string, string> = {
   suppression_dossier: 'Dossier supprimé',
   creation_compte: 'Compte créé',
   modification_compte: 'Compte modifié',
-  desactivation_compte: 'Compte désactivé'
+  desactivation_compte: 'Compte désactivé',
+  modification_objectifs: 'Objectifs modifiés'
 };
 
 export const actionLabel = (action: string) => ACTION_LABELS[action] || action;
@@ -16,6 +17,7 @@ export const actionStyle = (action: string) => {
   if (action.includes('pdf') || action === 'ajout_piece') return 'bg-green-100 text-green-700';
   if (action.includes('dossier')) return 'bg-blue-100 text-blue-700';
   if (action.includes('compte')) return 'bg-purple-100 text-purple-700';
+  if (action.includes('objectif')) return 'bg-orange-100 text-orange-700';
   return 'bg-gray-100 text-gray-700';
 };
 

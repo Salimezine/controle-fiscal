@@ -12,6 +12,9 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
+const TYPES_TRAVAUX = ['DMI', 'AP', 'CNSS', 'IS'];
+const currentYear = () => Number(new Date().toISOString().slice(0, 4));
+
 function json(data: any, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -537,6 +540,86 @@ export default {
         "SELECT id, full_name, email, role FROM users WHERE is_active = 1 AND role = 'user' ORDER BY full_name"
       ).all();
       return json(results);
+    }
+
+    // === OBJECTIFS ANNUELS PAR TYPE (lecture: tous, écriture: expert) ===
+    if (path === '/api/objectifs' && method === 'GET') {
+      const raw = url.searchParams.get('annee');
+      const annee = raw && /^\d{4}$/.test(raw) ? Number(raw) : currentYear();
+      const year = String(annee);
+
+      const { results: objectifsRows } = await env.DB.prepare(
+        'SELECT type_travail, objectif FROM objectifs_annuels WHERE annee = ?'
+      ).bind(annee).all();
+
+      // "Réalisé" = dossiers ayant au moins une preuve PDF déposée dans l'année.
+      const { results: realisesRows } = await env.DB.prepare(
+        `SELECT type_travail, COUNT(DISTINCT travail_id) AS realise FROM (
+           SELECT p.travail_id, p.type_travail FROM pieces_justificatives p
+             WHERE strftime('%Y', p.uploaded_at) = ?
+           UNION
+           SELECT t.id AS travail_id, t.type_travail FROM recue_pdfs rp
+             JOIN travaux t ON t.id = rp.travail_id
+             WHERE strftime('%Y', rp.uploaded_at) = ?
+         ) GROUP BY type_travail`
+      ).bind(year, year).all();
+
+      const { results: creesRows } = await env.DB.prepare(
+        "SELECT type_travail, COUNT(*) AS total FROM travaux WHERE strftime('%Y', created_at) = ? GROUP BY type_travail"
+      ).bind(year).all();
+
+      const objectifsMap = new Map(objectifsRows.map((o: any) => [o.type_travail, Number(o.objectif)]));
+      const realisesMap = new Map(realisesRows.map((r: any) => [r.type_travail, Number(r.realise)]));
+      const creesMap = new Map(creesRows.map((r: any) => [r.type_travail, Number(r.total)]));
+
+      const objectifs = TYPES_TRAVAUX.map(type => {
+        const objectif = objectifsMap.get(type) ?? 0;
+        const realise = realisesMap.get(type) ?? 0;
+        const dossiersCrees = creesMap.get(type) ?? 0;
+        return {
+          annee,
+          type_travail: type,
+          objectif,
+          realise,
+          dossiers_crees: dossiersCrees,
+          reste: Math.max(0, objectif - realise),
+          pourcent: objectif > 0 ? Math.min(100, Math.round((realise / objectif) * 100)) : 0
+        };
+      });
+      return json({ annee, objectifs });
+    }
+
+    if (path === '/api/objectifs' && method === 'PUT') {
+      if (actor?.role !== 'admin') return json({ error: 'Accès réservé à l\'expert' }, 403);
+      const body = await request.json() as any;
+      const annee = Number(body.annee) || currentYear();
+      if (!Number.isInteger(annee) || annee < 2000 || annee > 2100) {
+        return json({ error: 'Année invalide' }, 400);
+      }
+      const values = body.objectifs;
+      if (!Array.isArray(values) || values.length === 0) {
+        return json({ error: 'Aucun objectif fourni' }, 400);
+      }
+      const changes: string[] = [];
+      for (const item of values) {
+        const type = String(item?.type_travail || '').toUpperCase();
+        const objectif = Number(item?.objectif);
+        if (!TYPES_TRAVAUX.includes(type)) return json({ error: `Type invalide: ${type}` }, 400);
+        if (!Number.isInteger(objectif) || objectif < 0 || objectif > 9999) {
+          return json({ error: `Objectif invalide pour ${type}` }, 400);
+        }
+        await env.DB.prepare(
+          `INSERT INTO objectifs_annuels (id, annee, type_travail, objectif, created_at)
+           VALUES (?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(annee, type_travail) DO UPDATE SET objectif = excluded.objectif`
+        ).bind(genId(), annee, type, objectif).run();
+        changes.push(`${type}: ${objectif}`);
+      }
+      await logAudit(env, actor, 'modification_objectifs', {
+        entityType: 'objectif', entityId: String(annee),
+        details: `${annee} — ${changes.join(', ')}`
+      });
+      return json({ annee, status: 'ok' });
     }
 
     return json({ error: 'Route non trouvée' }, 404);

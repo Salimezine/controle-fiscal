@@ -15,6 +15,10 @@ interface Event {
   id: string; created_at: string; user_name: string; action: string;
   societe_nom: string | null; travail_titre: string | null;
 }
+interface Objectif {
+  annee: number; type_travail: string; objectif: number; realise: number;
+  dossiers_crees: number; reste: number; pourcent: number;
+}
 
 export default function AccueilPage() {
   const session = getSession();
@@ -23,6 +27,8 @@ export default function AccueilPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [dossiers, setDossiers] = useState<Travail[]>([]);
   const [audit, setAudit] = useState<Event[]>([]);
+  const [objectifs, setObjectifs] = useState<Objectif[]>([]);
+  const [annee, setAnnee] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -37,6 +43,12 @@ export default function AccueilPage() {
         setSocietes(await socRes.json());
         setUsers(await usersRes.json());
         setDossiers(lists.flat());
+        const objRes = await authFetch(`${API_URL}/api/objectifs`);
+        if (objRes.ok) {
+          const data = await objRes.json();
+          setObjectifs(data.objectifs);
+          setAnnee(data.annee);
+        }
         if (isAdmin) {
           const r = await authFetch(`${API_URL}/api/audit`);
           if (r.ok) setAudit(await r.json());
@@ -90,6 +102,43 @@ export default function AccueilPage() {
           </a>
         ))}
       </div>
+
+      {objectifs.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <h2 className="text-lg font-semibold">🎯 Objectifs {annee} — dossiers avec PDF</h2>
+            {isAdmin ? (
+              <a href="/objectifs" className="text-sm text-blue-600 hover:underline">
+                Modifier les objectifs →
+              </a>
+            ) : (
+              <span className="text-xs text-gray-500">Objectifs fixés par l’expert</span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+            {objectifs.map(o => (
+              <div key={o.type_travail}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{ICONS[o.type_travail]} {o.type_travail}</span>
+                  <span className="text-gray-600">
+                    <b>{o.realise}</b> / {o.objectif > 0 ? o.objectif : '—'}
+                    {o.objectif > 0 && ` (${o.pourcent}%)`}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                  <div
+                    className={`h-2 rounded-full ${o.pourcent >= 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                    style={{ width: `${o.pourcent}%` }}
+                  />
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {o.dossiers_crees} dossier(s) créé(s) · reste {o.reste}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-lg shadow p-4">

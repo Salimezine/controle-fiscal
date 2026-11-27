@@ -120,6 +120,20 @@ CREATE TABLE IF NOT EXISTS recue_pdfs (
   uploaded_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Objectifs annuels par type de dossier (ex. DMI = 12/an)
+CREATE TABLE IF NOT EXISTS objectifs_annuels (
+  id TEXT PRIMARY KEY,
+  annee INTEGER NOT NULL,
+  type_travail TEXT NOT NULL,
+  objectif INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE (annee, type_travail)
+);
+
+-- Objectif par défaut : 12 DMI par an (modifiable depuis la page Objectifs).
+INSERT OR IGNORE INTO objectifs_annuels (id, annee, type_travail, objectif)
+SELECT 'obj-dmi-' || strftime('%Y', 'now'), CAST(strftime('%Y', 'now') AS INTEGER), 'DMI', 12;
+
 -- Journal d'audit (traçabilité pour l'expert)
 CREATE TABLE IF NOT EXISTS audit_log (
   id TEXT PRIMARY KEY,
