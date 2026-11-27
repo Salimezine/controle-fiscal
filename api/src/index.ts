@@ -4,7 +4,9 @@
 
 interface Env {
   DB: D1Database;
-  EUREX_DB: D1Database;
+  // Binding optionnel : EUREX vit sur un autre compte Cloudflare,
+  // le D1 cross-account est impossible. Sans binding, la sync est skippee.
+  EUREX_DB?: D1Database;
 }
 
 function json(data: any, status = 200) {
@@ -54,7 +56,8 @@ export default {
       ).bind(email).first() as any;
       
       // 2. Si pas trouvé, vérifier dans EUREX et synchroniser
-      if (!user) {
+      //    (skip si le binding EUREX_DB n'existe pas : compte Cloudflare séparé)
+      if (!user && env.EUREX_DB) {
         const eurexUser = await env.EUREX_DB.prepare(
           'SELECT * FROM org_users WHERE email = ? AND is_active = 1'
         ).bind(email).first() as any;
