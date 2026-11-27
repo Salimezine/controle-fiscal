@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { API_URL, authFetch } from '../lib/api';
-import { getSession } from '../lib/auth';
+import { clearSession, getSession } from '../lib/auth';
 import { filterDossiers } from '../lib/dossiers';
 import { actionLabel, actionStyle, formatDate } from '../lib/labels';
 
@@ -39,23 +39,40 @@ export default function AccueilPage() {
   useEffect(() => {
     (async () => {
       try {
+        const asArray = async (r: Response) => {
+          if (r.status === 401) {
+            clearSession();
+            window.location.href = '/login';
+            return [];
+          }
+          if (!r.ok) return [];
+          const data = await r.json();
+          return Array.isArray(data) ? data : [];
+        };
+
         const socRes = await authFetch(`${API_URL}/api/societes`);
         const usersRes = await authFetch(`${API_URL}/api/users`);
         const lists = await Promise.all(
-          TYPES.map(t => authFetch(`${API_URL}/api/travaux?type=${t}`).then(r => r.json()))
+          TYPES.map(t => authFetch(`${API_URL}/api/travaux?type=${t}`).then(asArray))
         );
-        setSocietes(await socRes.json());
-        setUsers(await usersRes.json());
+        setSocietes(await asArray(socRes));
+        setUsers(await asArray(usersRes));
         setDossiers(lists.flat());
+
         const objRes = await authFetch(`${API_URL}/api/objectifs`);
         if (objRes.ok) {
           const data = await objRes.json();
-          setObjectifs(data.objectifs);
-          setAnnee(data.annee);
+          if (Array.isArray(data.objectifs)) {
+            setObjectifs(data.objectifs);
+            setAnnee(data.annee);
+          }
         }
         if (isAdmin) {
           const r = await authFetch(`${API_URL}/api/audit`);
-          if (r.ok) setAudit(await r.json());
+          if (r.ok) {
+            const data = await r.json();
+            setAudit(Array.isArray(data) ? data : []);
+          }
         }
       } catch (e: any) { setError(e.message || 'Erreur de chargement'); }
       finally { setLoading(false); }
