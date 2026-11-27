@@ -134,6 +134,25 @@ CREATE TABLE IF NOT EXISTS objectifs_annuels (
 INSERT OR IGNORE INTO objectifs_annuels (id, annee, type_travail, objectif)
 SELECT 'obj-dmi-' || strftime('%Y', 'now'), CAST(strftime('%Y', 'now') AS INTEGER), 'DMI', 12;
 
+-- Objectifs par société / dossier : 12 DMI (1/mois), 4 CNSS (1/trimestre), 3 AP, 1 IS.
+CREATE TABLE IF NOT EXISTS objectifs_societes (
+  id TEXT PRIMARY KEY,
+  annee INTEGER NOT NULL,
+  societe_id TEXT NOT NULL,
+  type_travail TEXT NOT NULL,
+  objectif INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE (annee, societe_id, type_travail)
+);
+
+INSERT OR IGNORE INTO objectifs_societes (id, annee, societe_id, type_travail, objectif)
+SELECT 'obj-soc-' || a.y || '-' || s.id || '-' || t.code,
+       CAST(a.y AS INTEGER), s.id, t.code,
+       CASE t.code WHEN 'DMI' THEN 12 WHEN 'CNSS' THEN 4 WHEN 'AP' THEN 3 WHEN 'IS' THEN 1 ELSE 0 END
+FROM societes s
+CROSS JOIN (SELECT 'DMI' AS code UNION ALL SELECT 'AP' UNION ALL SELECT 'CNSS' UNION ALL SELECT 'IS') t
+CROSS JOIN (SELECT strftime('%Y', 'now') AS y) a;
+
 -- Journal d'audit (traçabilité pour l'expert)
 CREATE TABLE IF NOT EXISTS audit_log (
   id TEXT PRIMARY KEY,

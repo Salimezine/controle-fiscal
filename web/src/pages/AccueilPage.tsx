@@ -34,6 +34,7 @@ export default function AccueilPage() {
   const [audit, setAudit] = useState<Event[]>([]);
   const [objectifs, setObjectifs] = useState<Objectif[]>([]);
   const [annee, setAnnee] = useState(new Date().getFullYear());
+  const [annees, setAnnees] = useState<number[]>([]);
   const [searchDossier, setSearchDossier] = useState('');
   const [filterType, setFilterType] = useState('');
   const [loading, setLoading] = useState(true);
@@ -62,13 +63,10 @@ export default function AccueilPage() {
         setUsers(await asArray(usersRes));
         setDossiers(lists.flat());
 
-        const objRes = await authFetch(`${API_URL}/api/objectifs`);
-        if (objRes.ok) {
-          const data = await objRes.json();
-          if (Array.isArray(data.objectifs)) {
-            setObjectifs(data.objectifs);
-            setAnnee(data.annee);
-          }
+        const yearsRes = await authFetch(`${API_URL}/api/annees`);
+        if (yearsRes.ok) {
+          const data = await yearsRes.json();
+          if (Array.isArray(data.annees) && data.annees.length) setAnnees(data.annees);
         }
         if (isAdmin) {
           const r = await authFetch(`${API_URL}/api/audit`);
@@ -82,13 +80,31 @@ export default function AccueilPage() {
     })();
   }, [isAdmin]);
 
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await authFetch(`${API_URL}/api/objectifs?annee=${annee}`);
+        if (res.status === 401) { clearSession(); window.location.href = '/login'; return; }
+        if (!res.ok) return;
+        const data = await res.json();
+        if (alive && Array.isArray(data.objectifs)) setObjectifs(data.objectifs);
+      } catch { /* garde les objectifs précédents */ }
+    })();
+    return () => { alive = false; };
+  }, [annee]);
+
   const socNom = (id: string) => societes.find(s => s.id === id)?.raison_sociale || '—';
-  const recent = [...dossiers].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5);
-  const allDossiers = useMemo(
-    () => filterDossiers(dossiers, societes, searchDossier, filterType),
-    [dossiers, societes, searchDossier, filterType]
+  const dossiersAnnee = useMemo(
+    () => dossiers.filter(d => String(d.created_at).slice(0, 4) === String(annee)),
+    [dossiers, annee]
   );
-  const sansCnss = useMemo(() => societesSansCNSS(dossiers), [dossiers]);
+  const recent = [...dossiersAnnee].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5);
+  const allDossiers = useMemo(
+    () => filterDossiers(dossiersAnnee, societes, searchDossier, filterType),
+    [dossiersAnnee, societes, searchDossier, filterType]
+  );
+  const sansCnss = useMemo(() => societesSansCNSS(dossiersAnnee), [dossiersAnnee]);
   const statutStyle = (s: string) =>
     s === 'termine' || s === 'valide' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
 
@@ -97,7 +113,7 @@ export default function AccueilPage() {
     { label: 'Comptes', value: users.length, href: '/comptes', icon: '👥' },
     ...TYPES.map(t => ({
       label: `Dossiers ${t}`,
-      value: dossiers.filter(d => d.type_travail === t).length,
+      value: dossiersAnnee.filter(d => d.type_travail === t).length,
       href: `/${t.toLowerCase()}`,
       icon: ICONS[t]
     })),
@@ -123,6 +139,20 @@ export default function AccueilPage() {
       </div>
       {error && <div className="mb-4 p-2 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
 
+      <div className="mb-4 flex items-center gap-2">
+        <label htmlFor="annee-accueil" className="text-sm font-medium text-gray-700">📅 Année</label>
+        <select id="annee-accueil" value={annee}
+          onChange={e => setAnnee(Number(e.target.value))}
+          className="p-2 border rounded text-sm bg-white">
+          {(annees.length ? annees : [annee]).map(a => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+        <span className="text-xs text-gray-500">
+          Objectifs, activité, dossiers et compteurs affichés pour {annee}.
+        </span>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {stats.map(s => (
           <a key={s.label} href={s.href}
@@ -143,7 +173,9 @@ export default function AccueilPage() {
                 Modifier les objectifs →
               </a>
             ) : (
-              <span className="text-xs text-gray-500">Objectifs fixés par l’expert</span>
+              <a href="/objectifs" className="text-sm text-blue-600 hover:underline">
+                Voir par société →
+              </a>
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import ActiviteComptables from '../components/ActiviteComptables';
+import ObjectifsSocietes from '../components/ObjectifsSocietes';
 import { API_URL, authFetch } from '../lib/api';
 
 interface Objectif {
@@ -18,13 +19,25 @@ const ICONS: Record<string, string> = { DMI: '📄', AP: '🛒', CNSS: '🏥', I
 export default function ObjectifsPage() {
   const currentYear = new Date().getFullYear();
   const [annee, setAnnee] = useState(currentYear);
-  const [yearInput, setYearInput] = useState(String(currentYear));
+  const [annees, setAnnees] = useState<number[]>([]);
   const [rows, setRows] = useState<Objectif[]>([]);
   const [form, setForm] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await authFetch(`${API_URL}/api/annees`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.annees) && data.annees.length) setAnnees(data.annees);
+        }
+      } catch { /* année courante gardée */ }
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -67,15 +80,6 @@ export default function ObjectifsPage() {
     finally { setBusy(false); }
   };
 
-  const charger = () => {
-    const year = Number(yearInput);
-    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-      setError('Année invalide (ex. 2026).'); return;
-    }
-    setError(''); setSuccess('');
-    setAnnee(year);
-  };
-
   return (
     <div>
       <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
@@ -92,13 +96,11 @@ export default function ObjectifsPage() {
         <div className="flex items-end gap-2 flex-wrap">
           <div>
             <label className="block text-xs text-gray-600 mb-1">Année</label>
-            <input type="number" min="2000" max="2100" value={yearInput}
-              onChange={e => setYearInput(e.target.value)}
-              className="p-2 border rounded text-sm w-28" />
+            <select value={annee} onChange={e => setAnnee(Number(e.target.value))}
+              className="p-2 border rounded text-sm">
+              {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
           </div>
-          <button onClick={charger} className="px-3 py-2 border rounded text-sm hover:bg-gray-50">
-            Charger
-          </button>
           <div className="ml-auto text-sm text-gray-600">
             Année affichée : <b>{annee}</b>
           </div>
@@ -161,6 +163,10 @@ export default function ObjectifsPage() {
         <span className="text-xs text-gray-500">
           Chaque modification est enregistrée dans l’Audit avec votre nom.
         </span>
+      </div>
+
+      <div className="mt-6">
+        <ObjectifsSocietes annee={annee} />
       </div>
 
       <div className="mt-6">

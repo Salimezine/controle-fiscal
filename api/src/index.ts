@@ -12,6 +12,7 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
+import { anneesDisponibles, preparerAnnee } from './annees';
 import { heures, minutesBetween } from './stats';
 
 const TYPES_TRAVAUX = ['DMI', 'AP', 'CNSS', 'IS'];
@@ -738,6 +739,102 @@ export default {
       });
     }
 
+    // === OBJECTIFS PAR SOCIÉTÉ / DOSSIER ===
+    // 12 DMI (1/mois), 4 CNSS (1/trimestre), 3 AP, 1 IS pour chaque société.
+    // « Réalisé » = nombre de PDF déposés dans l'année (pas seulement le nb de dossiers).
+    if (path === '/api/objectifs/societes' && method === 'GET') {
+      const raw = url.searchParams.get('annee');
+      const annee = raw && /^\d{4}$/.test(raw) ? Number(raw) : currentYear();
+      const year = String(annee);
+      const { results } = await env.DB.prepare(
+        `SELECT os.societe_id, os.type_travail, os.objectif,
+           (SELECT COUNT(*) FROM travaux t
+             WHERE t.societe_id = os.societe_id AND t.type_travail = os.type_travail
+               AND strftime('%Y', t.created_at) = ?) AS dossiers_crees,
+           (SELECT COUNT(*) FROM pieces_justificatives p
+             WHERE p.societe_id = os.societe_id AND p.type_travail = os.type_travail
+               AND strftime('%Y', p.uploaded_at) = ?)
+           + (SELECT COUNT(*) FROM recue_pdfs rp
+              JOIN travaux t2 ON t2.id = rp.travail_id
+              WHERE t2.societe_id = os.societe_id AND t2.type_travail = os.type_travail
+                AND strftime('%Y', rp.uploaded_at) = ?) AS realise
+         FROM objectifs_societes os
+         WHERE os.annee = ?
+         ORDER BY os.societe_id, os.type_travail`
+      ).bind(year, year, year, annee).all();
+
+      const total = (results || []).reduce((acc: any, r: any) => {
+        acc.objectif += Number(r.objectif || 0);
+        acc.realise += Number(r.realise || 0);
+        acc.dossiers_crees += Number(r.dossiers_crees || 0);
+        return acc;
+      }, { objectif: 0, realise: 0, dossiers_crees: 0 });
+      return json({ annee, objectifs: results || [], total });
+    }
+
+    if (path === '/api/objectifs/societes' && method === 'PUT') {
+      if (actor?.role !== 'admin') return json({ error: 'Accès réservé à l\'expert' }, 403);
+      const body = await request.json() as any;
+      const annee = Number(body?.annee);
+      const societeId = String(body?.societe_id || '');
+      if (!Number.isInteger(annee) || annee < 2000 || annee > 2100 || !societeId) {
+        return json({ error: 'Année ou société invalide' }, 400);
+      }
+      const values = body?.objectifs;
+      if (!Array.isArray(values) || values.length === 0) {
+        return json({ error: 'Aucun objectif fourni' }, 400);
+      }
+      const soc = await env.DB.prepare('SELECT raison_sociale FROM societes WHERE id = ?').bind(societeId).first() as any;
+      if (!soc) return json({ error: 'Société non trouvée' }, 404);
+
+      const changes: string[] = [];
+      for (const item of values) {
+        const type = String(item?.type_travail || '').toUpperCase();
+        const objectif = Number(item?.objectif);
+        if (!TYPES_TRAVAUX.includes(type) || !Number.isInteger(objectif) || objectif < 0 || objectif > 9999) {
+          return json({ error: `Objectif invalide pour ${type}` }, 400);
+        }
+        await env.DB.prepare(
+          `INSERT INTO objectifs_societes (id, annee, societe_id, type_travail, objectif)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(annee, societe_id, type_travail) DO UPDATE SET objectif = excluded.objectif`
+        ).bind(`obj-soc-${annee}-${societeId}-${type}`, annee, societeId, type, objectif).run();
+        changes.push(`${type}: ${objectif}`);
+      }
+      await logAudit(env, actor, 'modification_objectifs', {
+        entityType: 'societe', entityId: societeId,
+        societeId, societeNom: soc.raison_sociale,
+        details: `Objectifs ${annee} · ${soc.raison_sociale} · ${changes.join(', ')}`
+      });
+      return json({ annee, societe_id: societeId, status: 'ok' });
+    }
+
+    // === ANNÉES (liste pour le filtre de l'UI) ===
+    if (path === '/api/annees' && method === 'GET') {
+      return json({ annees: await anneesDisponibles(env) });
+    }
+
+    // Renouvellement manuel (expert) — utilisé aussi par le cron du 1er janvier.
+    if (path === '/api/annees/prepare' && method === 'POST') {
+      if (actor?.role !== 'admin') return json({ error: 'Accès réservé à l\'expert' }, 403);
+      const body = await request.json() as any;
+      const annee = Number(body?.annee);
+      const depuis = Number(body?.depuis ?? (annee - 1));
+      if (!Number.isInteger(annee) || !Number.isInteger(depuis) ||
+          annee < 2000 || annee > 2100 || depuis < 2000 || annee <= depuis) {
+        return json({ error: 'Années invalides' }, 400);
+      }
+      return json({ annee, depuis, ...await preparerAnnee(env, annee, depuis) });
+    }
+
     return json({ error: 'Route non trouvée' }, 404);
+  },
+
+  // 1er janvier 00:00 UTC : on prépare l'année nouvelle depuis l'année écoulée.
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    const now = new Date(controller.scheduledTime);
+    if (now.getUTCMonth() !== 0 || now.getUTCDate() !== 1) return;
+    const annee = now.getUTCFullYear();
+    ctx.waitUntil(preparerAnnee(env, annee, annee - 1));
   }
 }

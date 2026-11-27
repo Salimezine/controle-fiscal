@@ -14,5 +14,8 @@
   ],
   "vars": {
     "ENVIRONMENT": "production"
+  },
+  "triggers": {
+    "crons": ["0 0 1 1 *"]
   }
 }
