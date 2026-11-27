@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_URL = 'http://127.0.0.1:8787';
+import { API_URL } from '../lib/api';
 
 interface Travail {
   id: string;
