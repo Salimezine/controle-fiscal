@@ -42,7 +42,10 @@ export default function SocietesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">🏢 Sociétés</h1>
+      <h1 className="text-2xl font-bold mb-1">🏢 Sociétés</h1>
+      <p className="text-sm text-gray-600 mb-4">
+        Référentiel des sociétés. Rechercher une société, puis ouvrir son dossier DMI / AP / CNSS / IS.
+      </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Liste des sociétés */}

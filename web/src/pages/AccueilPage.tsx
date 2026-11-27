@@ -1,0 +1,157 @@
+import { useEffect, useState } from 'react';
+
+import { API_URL, authFetch } from '../lib/api';
+import { getSession } from '../lib/auth';
+import { actionLabel, actionStyle, formatDate } from '../lib/labels';
+
+const TYPES = ['DMI', 'AP', 'CNSS', 'IS'];
+const ICONS: Record<string, string> = { DMI: '📄', AP: '🛒', CNSS: '🏥', IS: '💼' };
+
+interface Travail {
+  id: string; societe_id: string; type_travail: string; titre: string;
+  comptable_name: string | null; created_at: string; nb_pieces: number; nb_recues: number;
+}
+interface Event {
+  id: string; created_at: string; user_name: string; action: string;
+  societe_nom: string | null; travail_titre: string | null;
+}
+
+export default function AccueilPage() {
+  const session = getSession();
+  const isAdmin = session?.user.role === 'admin';
+  const [societes, setSocietes] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [dossiers, setDossiers] = useState<Travail[]>([]);
+  const [audit, setAudit] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const socRes = await authFetch(`${API_URL}/api/societes`);
+        const usersRes = await authFetch(`${API_URL}/api/users`);
+        const lists = await Promise.all(
+          TYPES.map(t => authFetch(`${API_URL}/api/travaux?type=${t}`).then(r => r.json()))
+        );
+        setSocietes(await socRes.json());
+        setUsers(await usersRes.json());
+        setDossiers(lists.flat());
+        if (isAdmin) {
+          const r = await authFetch(`${API_URL}/api/audit`);
+          if (r.ok) setAudit(await r.json());
+        }
+      } catch (e: any) { setError(e.message || 'Erreur de chargement'); }
+      finally { setLoading(false); }
+    })();
+  }, [isAdmin]);
+
+  const socNom = (id: string) => societes.find(s => s.id === id)?.raison_sociale || '—';
+  const recent = [...dossiers].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5);
+
+  const stats = [
+    { label: 'Sociétés', value: societes.length, href: '/societes', icon: '🏢' },
+    { label: 'Comptes', value: users.length, href: '/comptes', icon: '👥' },
+    ...TYPES.map(t => ({
+      label: `Dossiers ${t}`,
+      value: dossiers.filter(d => d.type_travail === t).length,
+      href: `/${t.toLowerCase()}`,
+      icon: ICONS[t]
+    })),
+    ...(isAdmin ? [{ label: 'Actions tracées', value: audit.length, href: '/audit', icon: '🔍' }] : [])
+  ];
+
+  return (
+    <div>
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+        <div>
+          <h1 className="text-2xl font-bold">👋 Bonjour {session?.user.full_name}</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            {isAdmin ? 'Espace Expert — contrôle et traçabilité' : 'Espace Comptable — vos dossiers et vos PDF'}
+          </p>
+        </div>
+        <span className="px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+          {isAdmin ? 'Expert / Admin' : 'Comptable'}
+        </span>
+      </div>
+
+      <div className="mb-4 p-2 rounded bg-green-50 text-green-700 text-sm">
+        ✅ Données conservées localement — aucune synchronisation avec EUREX.
+      </div>
+      {error && <div className="mb-4 p-2 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        {stats.map(s => (
+          <a key={s.label} href={s.href}
+            className="bg-white rounded-lg shadow p-4 hover:shadow-md hover:border-blue-300 border border-transparent transition">
+            <div className="text-2xl">{s.icon}</div>
+            <div className="text-2xl font-bold mt-1">{loading ? '…' : s.value}</div>
+            <div className="text-xs text-gray-600">{s.label}</div>
+          </a>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-lg font-semibold mb-3">🚀 Démarrage rapide</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {TYPES.map(t => (
+              <a key={t} href={`/${t.toLowerCase()}`}
+                className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                <span className="font-medium">{ICONS[t]} {t}</span>
+                <span className="text-xs text-gray-500">{dossiers.filter(d => d.type_travail === t).length} dossier(s)</span>
+              </a>
+            ))}
+          </div>
+          <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
+            <b>Comment ça marche ?</b>
+            <ol className="list-decimal ml-5 mt-1 space-y-1">
+              <li>Choisir la société et créer le dossier.</li>
+              <li>Cliquer dessus, ajouter le PDF ou le reçu RCUE.</li>
+              <li>L’expert voit la trace dans <a href="/audit" className="underline">Audit</a>.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-4">
+          <h2 className="text-lg font-semibold mb-3">
+            {isAdmin ? '🕒 Dernières actions (Audit)' : '📁 Mes derniers dossiers'}
+          </h2>
+          {isAdmin ? (
+            <>
+              {audit.slice(0, 5).map(e => (
+                <div key={e.id} className="border-b py-2 text-sm last:border-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <b>{e.user_name}</b>
+                    <span className={`px-2 py-0.5 rounded text-xs ${actionStyle(e.action)}`}>
+                      {actionLabel(e.action)}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {e.societe_nom || '—'} · {e.travail_titre || '—'} · {formatDate(e.created_at)}
+                  </div>
+                </div>
+              ))}
+              {audit.length === 0 && !loading && <p className="text-sm text-gray-500">Aucune action enregistrée.</p>}
+              <a href="/audit" className="inline-block mt-3 text-sm text-blue-600 hover:underline">
+                Voir tout le journal →
+              </a>
+            </>
+          ) : (
+            <>
+              {recent.map(d => (
+                <div key={d.id} className="border-b py-2 text-sm last:border-0">
+                  <div className="font-medium">{d.titre}</div>
+                  <div className="text-xs text-gray-600">
+                    {d.type_travail} · {socNom(d.societe_id)} · 📎 {d.nb_pieces || 0} · 🧾 {d.nb_recues || 0}
+                  </div>
+                </div>
+              ))}
+              {recent.length === 0 && !loading && <p className="text-sm text-gray-500">Aucun dossier pour le moment.</p>}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, NavLink } from 'react-router-dom';
 
+import AccueilPage from './pages/AccueilPage';
 import DMIPage from './pages/DMIPage';
 import APPage from './pages/APPage';
 import CNSSPage from './pages/CNSSPage';
@@ -16,16 +17,24 @@ function Layout({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex gap-4 items-center flex-wrap">
-          <a href="/societes" className="px-3 py-2 rounded-lg hover:bg-gray-100">Sociétés</a>
-          <a href="/comptes" className="px-3 py-2 rounded-lg hover:bg-gray-100">Comptes</a>
-          <a href="/dmi" className="px-3 py-2 rounded-lg hover:bg-gray-100">DMI</a>
-          <a href="/ap" className="px-3 py-2 rounded-lg hover:bg-gray-100">AP</a>
-          <a href="/cnss" className="px-3 py-2 rounded-lg hover:bg-gray-100">CNSS</a>
-          <a href="/is" className="px-3 py-2 rounded-lg hover:bg-gray-100">IS</a>
-          {user.role === 'admin' && (
-            <a href="/audit" className="px-3 py-2 rounded-lg hover:bg-gray-100">Audit</a>
-          )}
+        <div className="max-w-7xl mx-auto px-4 py-3 flex gap-1 items-center flex-wrap">
+          {[
+            { to: '/', label: '🏠 Accueil' },
+            { to: '/dmi', label: '📄 DMI' },
+            { to: '/ap', label: '🛒 AP' },
+            { to: '/cnss', label: '🏥 CNSS' },
+            { to: '/is', label: '💼 IS' },
+            { to: '/societes', label: '🏢 Sociétés' },
+            { to: '/comptes', label: '👥 Comptes' },
+            ...(user.role === 'admin' ? [{ to: '/audit', label: '🔍 Audit' }] : [])
+          ].map(item => (
+            <NavLink key={item.to} to={item.to} end={item.to === '/'}
+              className={({ isActive }) =>
+                `px-3 py-2 rounded-lg text-sm ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`
+              }>
+              {item.label}
+            </NavLink>
+          ))}
           <div className="ml-auto flex items-center gap-3">
             <span className="text-sm text-gray-700">
               {user.full_name}
@@ -78,10 +87,10 @@ export default function App() {
       <Routes>
         <Route
           path="/login"
-          element={user ? <Navigate to="/societes" replace /> : <LoginPage onLogin={setUser} />}
+          element={user ? <Navigate to="/" replace /> : <LoginPage onLogin={setUser} />}
         />
         <Route element={<Protected user={user} onLogout={logout} />}>
-          <Route path="/" element={<Navigate to="/societes" replace />} />
+          <Route path="/" element={<AccueilPage />} />
           <Route path="/societes" element={<SocietesPage />} />
           <Route path="/comptes" element={<ComptesPage />} />
           <Route path="/dmi" element={<DMIPage />} />
@@ -90,10 +99,10 @@ export default function App() {
           <Route path="/is" element={<ISPage />} />
           <Route
             path="/audit"
-            element={user?.role === 'admin' ? <AuditPage /> : <Navigate to="/societes" replace />}
+            element={user?.role === 'admin' ? <AuditPage /> : <Navigate to="/" replace />}
           />
         </Route>
-        <Route path="*" element={<Navigate to={user ? '/societes' : '/login'} replace />} />
+        <Route path="*" element={<Navigate to={user ? '/' : '/login'} replace />} />
       </Routes>
     </BrowserRouter>
   );

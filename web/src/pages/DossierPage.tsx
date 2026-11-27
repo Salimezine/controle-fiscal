@@ -38,6 +38,7 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const loadTravaux = async () => {
     const res = await authFetch(`${API_URL}/api/travaux?type=${type}`);
@@ -76,7 +77,7 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
 
   const createDossier = async () => {
     if (!dossier.societe_id || !dossier.titre) { setError('Société et titre requis.'); return; }
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setSuccess('');
     const body: any = {
       societe_id: dossier.societe_id, type_travail: type,
       reference: dossier.reference || null, titre: dossier.titre,
@@ -95,6 +96,7 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
       setDossier(emptyDossier);
       await loadTravaux();
       await loadDossier(created.id);
+      setSuccess(`Dossier créé${created.comptable_name ? ` et attribué à ${created.comptable_name}` : ''}.`);
     } catch (e: any) { setError(e.message || 'Erreur'); }
     finally { setBusy(false); }
   };
@@ -102,7 +104,7 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
   const uploadPiece = async (file: File) => {
     if (!selectedId) return;
     if (file.size > 700 * 1024) { setError('PDF trop volumineux (max 700KB).'); return; }
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setSuccess('');
     const fd = new FormData();
     fd.append('file', file); fd.append('label', file.name);
     try {
@@ -110,13 +112,14 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
       if (!res.ok) throw new Error((await res.json()).error || 'Erreur');
       setPieces(await (await authFetch(`${API_URL}/api/travaux/${selectedId}/pieces`)).json());
       await loadTravaux();
+      setSuccess('PDF ajouté et enregistré dans l’Audit avec votre nom.');
     } catch (e: any) { setError(e.message || 'Erreur'); }
     finally { setBusy(false); }
   };
 
   const addRecue = async () => {
     if (!selectedId || !recue.numero_recu) { setError('Numéro de reçu requis.'); return; }
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setSuccess('');
     const fd = new FormData();
     fd.append('numero_recu', recue.numero_recu);
     fd.append('montant', recue.montant);
@@ -129,6 +132,7 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
       setRecue(emptyRecue); setPdfFile(null);
       setRecues(await (await authFetch(`${API_URL}/api/travaux/${selectedId}/recues`)).json());
       await loadTravaux();
+      setSuccess('Reçu ajouté et enregistré dans l’Audit avec votre nom.');
     } catch (e: any) { setError(e.message || 'Erreur'); }
     finally { setBusy(false); }
   };
@@ -144,19 +148,26 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
 
   const filtered = filterSociete ? travaux.filter(t => t.societe_id === filterSociete) : travaux;
   const socNom = (id: string) => societes.find(s => s.id === id)?.raison_sociale || '—';
+  const statutStyle = (s: string) =>
+    s === 'termine' || s === 'valide' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-4">{icone} {titre}</h1>
+      <h1 className="text-2xl font-bold mb-1">{icone} {titre}</h1>
+      <p className="text-sm text-gray-600 mb-3">
+        1️⃣ Choisir la société et créer le dossier → 2️⃣ l’ouvrir → 3️⃣ ajouter le PDF / reçu. Tout est tracé dans l’Audit.
+      </p>
       {error && <div className="mb-4 p-2 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
+      {success && <div className="mb-4 p-2 rounded bg-green-50 text-green-700 text-sm">✅ {success}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Dossiers + création */}
         <div className="space-y-4">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Dossiers {type} ({filtered.length})</h2>
+              <h2 className="text-lg font-semibold">📋 Dossiers {type} ({filtered.length})</h2>
             </div>
+            <p className="text-xs text-gray-500 mb-2">Cliquer sur un dossier pour l’ouvrir à droite.</p>
             <select value={filterSociete} onChange={e => setFilterSociete(e.target.value)}
               className="w-full p-2 border rounded mb-3 text-sm">
               <option value="">Toutes les sociétés</option>
@@ -168,7 +179,10 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
                 <div key={t.id} onClick={() => loadDossier(t.id)}
                   className={`p-3 border rounded-lg mb-2 cursor-pointer hover:bg-gray-50 ${selectedId === t.id ? 'border-blue-500 bg-blue-50' : ''}`}>
                   <div className="font-medium">{t.titre}</div>
-                  <div className="text-xs text-gray-500">{socNom(t.societe_id)} · {t.reference || 'sans réf.'} · {t.statut}</div>
+                  <div className="text-xs text-gray-500">
+                    {socNom(t.societe_id)} · {t.reference || 'sans réf.'}{' '}
+                    <span className={`px-1.5 py-0.5 rounded ${statutStyle(t.statut)}`}>{t.statut}</span>
+                  </div>
                   <div className="text-xs text-gray-500">
                     👤 {t.comptable_name || 'Non attribué'} · 📎 {t.nb_pieces || 0} pièce(s) · 🧾 {t.nb_recues || 0} reçu(s)
                   </div>
@@ -179,7 +193,8 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
           </div>
 
           <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-semibold mb-3">Nouveau dossier {type}</h2>
+            <h2 className="text-lg font-semibold mb-1">➕ Nouveau dossier {type}</h2>
+            <p className="text-xs text-gray-500 mb-3">Société → Référence / Titre → Créer.</p>
             <div className="space-y-2">
               <select value={dossier.societe_id} onChange={e => setDossier({ ...dossier, societe_id: e.target.value })}
                 className="w-full p-2 border rounded text-sm">
@@ -218,14 +233,16 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
         {/* Détail du dossier sélectionné */}
         <div className="space-y-4">
           <div className="bg-white rounded-lg shadow p-4">
-            <h2 className="text-lg font-semibold mb-3">Dossier sélectionné</h2>
-            {!selectedId && <p className="text-sm text-gray-500">Cliquez sur un dossier pour voir ses pièces et reçus.</p>}
+            <h2 className="text-lg font-semibold mb-3">👆 Dossier ouvert</h2>
+            {!selectedId && <p className="text-sm text-gray-500">Cliquez sur un dossier à gauche pour voir ses pièces et reçus.</p>}
             {selectedId && dossierMeta && (
               <div className="text-sm space-y-1">
                 <div className="font-medium text-base">{dossierMeta.titre}</div>
                 <div>Société : <b>{socNom(dossierMeta.societe_id)}</b></div>
                 <div>Comptable : <b>{dossierMeta.comptable_name || 'Non attribué'}</b></div>
-                <div>Référence : {dossierMeta.reference || '—'} · Statut : {dossierMeta.statut}</div>
+                <div>Référence : {dossierMeta.reference || '—'} · Statut :{' '}
+                  <span className={`px-1.5 py-0.5 rounded ${statutStyle(dossierMeta.statut)}`}>{dossierMeta.statut}</span>
+                </div>
                 <div className="text-gray-500">Créé le {dossierMeta.created_at}</div>
               </div>
             )}
@@ -234,7 +251,8 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
           {selectedId && (
             <>
               <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-lg font-semibold mb-3">📎 Pièces justificatives PDF</h2>
+                <h2 className="text-lg font-semibold mb-1">📎 Étape 3 — Pièces PDF</h2>
+                <p className="text-xs text-gray-500 mb-2">PDF seulement, max 700KB. Ajout tracé automatiquement dans l’Audit.</p>
                 <input type="file" accept=".pdf" disabled={busy}
                   onChange={e => { const f = e.target.files?.[0]; if (f) uploadPiece(f); }}
                   className="block w-full text-sm mb-3" />
@@ -254,7 +272,8 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
               </div>
 
               <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-lg font-semibold mb-3">🧾 Reçus (RCUE)</h2>
+                <h2 className="text-lg font-semibold mb-1">🧾 Étape 3 — Reçus (RCUE)</h2>
+                <p className="text-xs text-gray-500 mb-2">N° reçu obligatoire. Joindre le PDF du reçu si disponible.</p>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <input placeholder="N° reçu *" value={recue.numero_recu}
                     onChange={e => setRecue({ ...recue, numero_recu: e.target.value })}
