@@ -37,7 +37,8 @@ jobs:
       - name: Deploy to Cloudflare Pages
         run: |
           cd web
-          npx wrangler pages deploy dist --project-name=controle-fiscal
+          npx wrangler pages project create controle-fiscal --production-branch=main --commit-dirty=true || true
+          npx wrangler pages deploy dist --project-name=controle-fiscal --commit-dirty=true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: 55d1321d8e45ed7bac839ba15d417fdd
