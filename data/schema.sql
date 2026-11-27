@@ -94,3 +94,45 @@ CREATE TABLE IF NOT EXISTS sessions (
   user_id TEXT NOT NULL,
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+-- Attribution d'un dossier au comptable qui le traite
+CREATE TABLE IF NOT EXISTS travail_attributions (
+  travail_id TEXT PRIMARY KEY,
+  comptable_id TEXT NOT NULL,
+  comptable_name TEXT,
+  assigned_by TEXT,
+  assigned_at TEXT DEFAULT (datetime('now'))
+);
+
+-- PDF des reçus (RCUE) — la table recues garde les métadonnées
+CREATE TABLE IF NOT EXISTS recue_pdfs (
+  id TEXT PRIMARY KEY,
+  recue_id TEXT NOT NULL,
+  travail_id TEXT NOT NULL,
+  societe_id TEXT NOT NULL,
+  label TEXT,
+  file_data TEXT,
+  file_name TEXT,
+  file_type TEXT,
+  file_size INTEGER,
+  uploaded_by TEXT,
+  uploaded_by_name TEXT,
+  uploaded_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Journal d'audit (traçabilité pour l'expert)
+CREATE TABLE IF NOT EXISTS audit_log (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  user_name TEXT,
+  role TEXT,
+  action TEXT NOT NULL,
+  entity_type TEXT,
+  entity_id TEXT,
+  societe_id TEXT,
+  societe_nom TEXT,
+  travail_id TEXT,
+  travail_titre TEXT,
+  details TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);

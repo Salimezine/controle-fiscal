@@ -8,6 +8,7 @@ import ISPage from './pages/ISPage';
 import SocietesPage from './pages/SocietesPage';
 import ComptesPage from './pages/ComptesPage';
 import LoginPage from './pages/LoginPage';
+import AuditPage from './pages/AuditPage';
 import { API_URL } from './lib/api';
 import { getSession, clearSession, type AuthUser } from './lib/auth';
 
@@ -22,6 +23,9 @@ function Layout({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
           <a href="/ap" className="px-3 py-2 rounded-lg hover:bg-gray-100">AP</a>
           <a href="/cnss" className="px-3 py-2 rounded-lg hover:bg-gray-100">CNSS</a>
           <a href="/is" className="px-3 py-2 rounded-lg hover:bg-gray-100">IS</a>
+          {user.role === 'admin' && (
+            <a href="/audit" className="px-3 py-2 rounded-lg hover:bg-gray-100">Audit</a>
+          )}
           <div className="ml-auto flex items-center gap-3">
             <span className="text-sm text-gray-700">
               {user.full_name}
@@ -84,6 +88,10 @@ export default function App() {
           <Route path="/ap" element={<APPage />} />
           <Route path="/cnss" element={<CNSSPage />} />
           <Route path="/is" element={<ISPage />} />
+          <Route
+            path="/audit"
+            element={user?.role === 'admin' ? <AuditPage /> : <Navigate to="/societes" replace />}
+          />
         </Route>
         <Route path="*" element={<Navigate to={user ? '/societes' : '/login'} replace />} />
       </Routes>
