@@ -84,6 +84,15 @@ async function syncEurex(env: Env, email?: string): Promise<{ users: number; soc
       'INSERT INTO users (id, societe_id, full_name, email, password_hash, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, datetime(\'now\')) ON CONFLICT(id) DO UPDATE SET full_name=excluded.full_name, password_hash=excluded.password_hash, role=excluded.role, is_active=1'
     ).bind(u.id, societeId, u.full_name, u.email, u.password_hash, role).run();
   }
+  // Miroir propre : supprimer les comptes qui n'existent plus dans EUREX.
+  // Uniquement lors d'une sync complète (jamais lors du login ciblé par email).
+  if (!email && users.length > 0) {
+    const placeholders = users.map(() => '?').join(',');
+    const ids = users.map((u: any) => u.id);
+    await env.DB.prepare(`DELETE FROM sessions WHERE user_id NOT IN (${placeholders})`).bind(...ids).run();
+    await env.DB.prepare(`DELETE FROM user_societes WHERE user_id NOT IN (${placeholders})`).bind(...ids).run();
+    await env.DB.prepare(`DELETE FROM users WHERE id NOT IN (${placeholders})`).bind(...ids).run();
+  }
   return { users: users.length, societes: societes.length };
 }
 
