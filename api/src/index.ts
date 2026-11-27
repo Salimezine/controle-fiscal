@@ -11,10 +11,16 @@ interface Env {
   EUREX_D1_TOKEN?: string;
 }
 
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+};
+
 function json(data: any, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
   });
 }
 
@@ -251,7 +257,8 @@ export default {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="${piece.file_name}"`,
-          'Content-Length': String(piece.file_size)
+          'Content-Length': String(piece.file_size),
+          ...CORS_HEADERS
         }
       });
     }
