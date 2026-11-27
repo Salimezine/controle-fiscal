@@ -87,8 +87,8 @@ export default function ObjectifsSocietes({ annee }: { annee: number }) {
             <span className="cf-badge cf-badge-blue">{parSociete.length}</span>
           </h2>
           <p className="cf-section-sub">
-            1 dossier = 1 société : <b>12 DMI</b> (1/mois), <b>4 CNSS</b> (1/trimestre), <b>3 AP</b>, <b>1 IS</b>.
-            Les sociétés qui ont déjà leur CNSS ont un objectif CNSS à <b>0</b> (affiché « — »).
+            1 dossier = 1 société : <b>12 DMI</b> (1/mois), <b>4 CNSS par an</b> (1/trimestre), <b>3 AP</b>, <b>1 IS</b>.
+            L’objectif CNSS est de 4 pour toutes les sociétés.
           </p>
         </div>
         <input type="search" placeholder="🔍 Filtrer une société..." value={search}

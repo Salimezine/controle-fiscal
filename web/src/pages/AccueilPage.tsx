@@ -5,7 +5,7 @@ import { API_URL, authFetch } from '../lib/api';
 import { formatDuree } from '../lib/activite';
 import { avancementDossier, cleObjectif, type Avancement } from '../lib/avancement';
 import { clearSession, getSession } from '../lib/auth';
-import { filterDossiers, societesSansCNSS } from '../lib/dossiers';
+import { filterDossiers } from '../lib/dossiers';
 import { actionLabel, actionStyle, formatDate } from '../lib/labels';
 
 const TYPES = ['DMI', 'AP', 'CNSS', 'IS'];
@@ -125,7 +125,6 @@ export default function AccueilPage() {
     () => filterDossiers(dossiersAnnee, societes, searchDossier, filterType),
     [dossiersAnnee, societes, searchDossier, filterType]
   );
-  const sansCnss = useMemo(() => societesSansCNSS(dossiersAnnee), [dossiersAnnee]);
   const statutStyle = (s: string) =>
     s === 'termine' || s === 'valide' ? 'cf-badge-green' : 'cf-badge-amber';
   const typeStyle = (t: string) =>
@@ -293,7 +292,7 @@ export default function AccueilPage() {
                     )}
                   </div>
                   {a.sansObjectif ? (
-                    <div className="text-xs cf-muted">Objectif 0 (CNSS déjà fourni) — suivi libre des PDF.</div>
+                    <div className="text-xs cf-muted">Objectif 0 — suivi libre des PDF déposés.</div>
                   ) : (
                     <div className={`cf-progress ${a.termine ? 'is-done' : ''}`}>
                       <span style={{ width: `${a.pourcent}%` }} />
@@ -321,34 +320,6 @@ export default function AccueilPage() {
           </div>
         )}
       </div>
-
-      {sansCnss.length > 0 && (
-        <div className="cf-card p-5 mb-4">
-          <div className="cf-alert cf-alert-warn mb-4">
-            <span>⚠️</span>
-            <span>
-              <b>Sociétés sans CNSS ({sansCnss.length}).</b> Elles ont déjà DMI / IS / AP mais aucun dossier CNSS —
-              cliquez sur « Créer CNSS » pour le rajouter.
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {sansCnss.map(g => (
-              <div key={g.societe_id}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/60">
-                <div className="min-w-0">
-                  <div className="font-semibold truncate">{socNom(g.societe_id)}</div>
-                  <div className="text-xs cf-muted">
-                    Déjà : {g.presents.map(t => `${ICONS[t]} ${t}`).join(' · ')}
-                  </div>
-                </div>
-                <a href={`/cnss?societe=${g.societe_id}`} className="cf-btn cf-btn-primary cf-btn-sm whitespace-nowrap">
-                  ➕ Créer CNSS
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="cf-card p-5">

@@ -14,7 +14,7 @@ describe('avancement d’un dossier', () => {
     expect(a.termine).toBe(false);
   });
 
-  it('respecte l’objectif 0 d’une société (CNSS déjà fourni)', () => {
+  it('gère un objectif 0 ponctuel sans pourcentage', () => {
     const objectifs = { [cleObjectif('s1', 'CNSS')]: 0 };
     const a = avancementDossier({ societe_id: 's1', type_travail: 'CNSS', nb_pieces: 4 }, objectifs);
     expect(a.sansObjectif).toBe(true);
