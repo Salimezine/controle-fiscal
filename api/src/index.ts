@@ -134,6 +134,12 @@ export default {
       });
     }
 
+    // === USERS (debug / verification) ===
+    if (path === '/api/users' && method === 'GET') {
+      const { results } = await env.DB.prepare('SELECT id, full_name, email, role, societe_id, is_active FROM users ORDER BY full_name').all();
+      return json(results);
+    }
+
     // === SOCIETES ===
     if (path === '/api/societes' && method === 'GET') {
       const { results } = await env.DB.prepare('SELECT * FROM societes ORDER BY raison_sociale').all();
