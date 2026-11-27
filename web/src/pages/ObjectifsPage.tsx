@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import ActiviteComptables from '../components/ActiviteComptables';
 import { API_URL, authFetch } from '../lib/api';
 
 interface Objectif {
@@ -160,6 +161,10 @@ export default function ObjectifsPage() {
         <span className="text-xs text-gray-500">
           Chaque modification est enregistrée dans l’Audit avec votre nom.
         </span>
+      </div>
+
+      <div className="mt-6">
+        <ActiviteComptables annee={annee} />
       </div>
     </div>
   );

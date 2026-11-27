@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { API_URL, authFetch } from '../lib/api';
+import { formatDuree } from '../lib/activite';
 import { getSession } from '../lib/auth';
 
 interface Societe { id: string; raison_sociale: string; matricule_fiscal: string | null }
@@ -10,7 +11,7 @@ interface Travail {
   id: string; societe_id: string; type_travail: string; reference: string | null;
   titre: string; description: string | null; statut: string; created_at: string;
   comptable_id: string | null; comptable_name: string | null; assigned_at: string | null;
-  nb_pieces: number; nb_recues: number;
+  nb_pieces: number; nb_recues: number; duree_minutes?: number;
 }
 interface Piece { id: string; label: string; file_name: string; file_size: number; uploaded_at: string }
 interface Recue {
@@ -192,6 +193,7 @@ export default function DossierPage({ type, titre, icone }: { type: string; titr
                   </div>
                   <div className="text-xs text-gray-500">
                     👤 {t.comptable_name || 'Non attribué'} · 📎 {t.nb_pieces || 0} pièce(s) · 🧾 {t.nb_recues || 0} reçu(s)
+                    {' '}· ⏱ {formatDuree(t.duree_minutes || 0)}
                   </div>
                 </div>
               ))}

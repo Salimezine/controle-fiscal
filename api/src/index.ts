@@ -12,8 +12,20 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
+import { heures, minutesBetween } from './stats';
+
 const TYPES_TRAVAUX = ['DMI', 'AP', 'CNSS', 'IS'];
 const currentYear = () => Number(new Date().toISOString().slice(0, 4));
+
+// Temps de traitement d'un dossier : création -> dernière activité tracée.
+const DUREE_TRAVAIL_SQL = `CAST((julianday(COALESCE((
+  SELECT MAX(at) FROM (
+    SELECT p.uploaded_at AS at FROM pieces_justificatives p WHERE p.travail_id = t.id
+    UNION ALL SELECT rp.uploaded_at FROM recue_pdfs rp WHERE rp.travail_id = t.id
+    UNION ALL SELECT r.created_at FROM recues r WHERE r.travail_id = t.id
+    UNION ALL SELECT al.created_at FROM audit_log al WHERE al.travail_id = t.id
+  )
+), t.created_at)) - julianday(t.created_at)) * 1440 AS INTEGER)`;
 
 function json(data: any, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -259,7 +271,8 @@ export default {
       const travail = await env.DB.prepare(
         `SELECT t.*, a.comptable_id, a.comptable_name, a.assigned_at,
           (SELECT COUNT(*) FROM pieces_justificatives p WHERE p.travail_id = t.id) AS nb_pieces,
-          (SELECT COUNT(*) FROM recues r WHERE r.travail_id = t.id) AS nb_recues
+          (SELECT COUNT(*) FROM recues r WHERE r.travail_id = t.id) AS nb_recues,
+          ${DUREE_TRAVAIL_SQL} AS duree_minutes
          FROM travaux t LEFT JOIN travail_attributions a ON a.travail_id = t.id
          WHERE t.id = ?`
       ).bind(id).first();
@@ -274,7 +287,8 @@ export default {
 
       let query = `SELECT t.*, a.comptable_id, a.comptable_name, a.assigned_at,
         (SELECT COUNT(*) FROM pieces_justificatives p WHERE p.travail_id = t.id) AS nb_pieces,
-        (SELECT COUNT(*) FROM recues r WHERE r.travail_id = t.id) AS nb_recues
+        (SELECT COUNT(*) FROM recues r WHERE r.travail_id = t.id) AS nb_recues,
+        ${DUREE_TRAVAIL_SQL} AS duree_minutes
         FROM travaux t LEFT JOIN travail_attributions a ON a.travail_id = t.id
         WHERE 1=1`;
       const binds: any[] = [];
@@ -620,6 +634,108 @@ export default {
         details: `${annee} — ${changes.join(', ')}`
       });
       return json({ annee, status: 'ok' });
+    }
+
+    // === ACTIVITÉ PAR COMPTABLE (année courante ou choisie) ===
+    // Expert : voit tout le monde. Comptable : voit uniquement sa propre ligne.
+    if (path === '/api/activite' && method === 'GET') {
+      const raw = url.searchParams.get('annee');
+      const annee = raw && /^\d{4}$/.test(raw) ? Number(raw) : currentYear();
+      const year = String(annee);
+      const isAdmin = actor?.role === 'admin';
+
+      const { results: users } = await env.DB.prepare(
+        `SELECT id, full_name, role FROM users WHERE is_active = 1
+         ${isAdmin ? '' : 'AND id = ?'} ORDER BY role DESC, full_name`
+      ).bind(...(isAdmin ? [] : [actor?.id || ''])).all();
+
+      const { results: creesRows } = await env.DB.prepare(
+        `SELECT a.comptable_id AS user_id, t.type_travail, COUNT(*) AS n
+         FROM travaux t JOIN travail_attributions a ON a.travail_id = t.id
+         WHERE strftime('%Y', t.created_at) = ?
+         GROUP BY a.comptable_id, t.type_travail`
+      ).bind(year).all();
+
+      const { results: realisesRows } = await env.DB.prepare(
+        `SELECT user_id, type_travail, COUNT(DISTINCT travail_id) AS n FROM (
+           SELECT a.comptable_id AS user_id, p.travail_id, p.type_travail
+           FROM pieces_justificatives p
+           JOIN travail_attributions a ON a.travail_id = p.travail_id
+           WHERE strftime('%Y', p.uploaded_at) = ?
+           UNION
+           SELECT a.comptable_id, rp.travail_id, t.type_travail
+           FROM recue_pdfs rp
+           JOIN travaux t ON t.id = rp.travail_id
+           JOIN travail_attributions a ON a.travail_id = rp.travail_id
+           WHERE strftime('%Y', rp.uploaded_at) = ?
+         ) GROUP BY user_id, type_travail`
+      ).bind(year, year).all();
+
+      const { results: evenements } = await env.DB.prepare(
+        `SELECT user_id, travail_id, MIN(at) AS first_at, MAX(at) AS last_at FROM (
+           SELECT a.comptable_id AS user_id, t.id AS travail_id, t.created_at AS at
+           FROM travaux t JOIN travail_attributions a ON a.travail_id = t.id
+           WHERE strftime('%Y', t.created_at) = ?
+           UNION ALL
+           SELECT a.comptable_id, p.travail_id, p.uploaded_at
+           FROM pieces_justificatives p
+           JOIN travail_attributions a ON a.travail_id = p.travail_id
+           WHERE strftime('%Y', p.uploaded_at) = ?
+           UNION ALL
+           SELECT a.comptable_id, rp.travail_id, rp.uploaded_at
+           FROM recue_pdfs rp
+           JOIN travail_attributions a ON a.travail_id = rp.travail_id
+           WHERE strftime('%Y', rp.uploaded_at) = ?
+           UNION ALL
+           SELECT al.user_id, al.travail_id, al.created_at
+           FROM audit_log al
+           JOIN travail_attributions a
+             ON a.travail_id = al.travail_id AND a.comptable_id = al.user_id
+           WHERE al.travail_id IS NOT NULL AND strftime('%Y', al.created_at) = ?
+         ) GROUP BY user_id, travail_id`
+      ).bind(year, year, year, year).all();
+
+      const minutesParUser = new Map<string, number>();
+      for (const e of evenements) {
+        const minutes = minutesBetween(e.first_at, e.last_at);
+        if (minutes > 0) minutesParUser.set(e.user_id, (minutesParUser.get(e.user_id) || 0) + minutes);
+      }
+
+      const count = (rows: any[], user: string, type: string) =>
+        Number(rows.find(r => r.user_id === user && r.type_travail === type)?.n || 0);
+      const sum = (rows: any[], user: string) =>
+        rows.filter(r => r.user_id === user).reduce((total, r) => total + Number(r.n || 0), 0);
+
+      const comptables = users.map((u: any) => {
+        const parType: Record<string, { crees: number; realises: number }> = {};
+        for (const type of TYPES_TRAVAUX) {
+          parType[type] = {
+            crees: count(creesRows, u.id, type),
+            realises: count(realisesRows, u.id, type)
+          };
+        }
+        const minutes = minutesParUser.get(u.id) || 0;
+        return {
+          id: u.id,
+          full_name: u.full_name,
+          role: u.role,
+          dossiers_crees: sum(creesRows, u.id),
+          realises: sum(realisesRows, u.id),
+          par_type: parType,
+          minutes,
+          heures: heures(minutes)
+        };
+      });
+
+      const totalMinutes = comptables.reduce((total, c) => total + c.minutes, 0);
+      const totalCrees = comptables.reduce((total, c) => total + c.dossiers_crees, 0);
+      const totalRealises = comptables.reduce((total, c) => total + c.realises, 0);
+
+      return json({
+        annee,
+        comptables,
+        total: { dossiers_crees: totalCrees, realises: totalRealises, minutes: totalMinutes, heures: heures(totalMinutes) }
+      });
     }
 
     return json({ error: 'Route non trouvée' }, 404);

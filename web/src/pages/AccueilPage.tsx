@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import ActiviteComptables from '../components/ActiviteComptables';
 import { API_URL, authFetch } from '../lib/api';
+import { formatDuree } from '../lib/activite';
 import { clearSession, getSession } from '../lib/auth';
 import { filterDossiers } from '../lib/dossiers';
 import { actionLabel, actionStyle, formatDate } from '../lib/labels';
@@ -12,6 +14,7 @@ interface Travail {
   id: string; societe_id: string; type_travail: string; titre: string;
   reference: string | null; statut: string;
   comptable_name: string | null; created_at: string; nb_pieces: number; nb_recues: number;
+  duree_minutes?: number;
 }
 interface Event {
   id: string; created_at: string; user_name: string; action: string;
@@ -167,6 +170,8 @@ export default function AccueilPage() {
         </div>
       )}
 
+      {isAdmin && <ActiviteComptables annee={annee} />}
+
       <div className="bg-white rounded-lg shadow p-4 mb-4">
         <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
           <div>
@@ -197,6 +202,7 @@ export default function AccueilPage() {
                 <th className="text-left p-2">Comptable</th>
                 <th className="text-left p-2">Réf.</th>
                 <th className="text-left p-2 whitespace-nowrap">Pièces</th>
+                <th className="text-left p-2 whitespace-nowrap">Temps</th>
                 <th className="text-left p-2">Statut</th>
                 <th className="text-left p-2 whitespace-nowrap">Créé le</th>
                 <th className="text-left p-2"></th>
@@ -211,6 +217,9 @@ export default function AccueilPage() {
                   <td className="p-2">{d.comptable_name || 'Non attribué'}</td>
                   <td className="p-2 text-gray-600">{d.reference || '—'}</td>
                   <td className="p-2 whitespace-nowrap">📎 {d.nb_pieces || 0} · 🧾 {d.nb_recues || 0}</td>
+                  <td className="p-2 whitespace-nowrap text-gray-600" title={`${d.duree_minutes || 0} min`}>
+                    ⏱ {formatDuree(d.duree_minutes || 0)}
+                  </td>
                   <td className="p-2">
                     <span className={`px-2 py-0.5 rounded text-xs ${statutStyle(d.statut)}`}>{d.statut}</span>
                   </td>
