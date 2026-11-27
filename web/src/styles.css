@@ -231,6 +231,25 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 .cf-dossier-details small { font-size: 10px; color: var(--cf-muted); font-weight: 600; }
 
+/* Accueil : tout le bleu devient vert (badges, barres, boutons, liens, survol) */
+.cf-accueil .cf-alert-info { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.cf-accueil .cf-stat:hover { border-color: #a7f3d0; }
+.cf-accueil .cf-stat-icon { background: linear-gradient(135deg, #ecfdf5, #d1fae5); }
+.cf-accueil .cf-badge-blue { background: #ecfdf5; color: #047857; }
+.cf-accueil .cf-btn-primary {
+  background: linear-gradient(135deg, #059669, #10b981);
+  box-shadow: 0 6px 16px rgba(5, 150, 105, .22);
+}
+.cf-accueil .cf-progress { background: #e7f3ed; }
+.cf-accueil .cf-progress > span { background: linear-gradient(90deg, #10b981, #059669); }
+.cf-accueil .cf-dossier-card:hover { border-color: #a7f3d0; }
+.cf-accueil .text-blue-700 { color: #047857; }
+.cf-accueil .text-blue-800 { color: #065f46; }
+.cf-accueil .bg-blue-50\/70 { background: #ecfdf5; }
+.cf-accueil .border-blue-100 { border-color: #a7f3d0; }
+.cf-accueil .hover\:border-blue-300:hover { border-color: #6ee7b7; }
+.cf-accueil .hover\:bg-blue-50\/60:hover { background: #ecfdf5; }
+
 /* Login */
 .cf-login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .cf-login-card {

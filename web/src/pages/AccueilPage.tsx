@@ -128,7 +128,7 @@ export default function AccueilPage() {
   const statutStyle = (s: string) =>
     s === 'termine' || s === 'valide' ? 'cf-badge-green' : 'cf-badge-amber';
   const typeStyle = (t: string) =>
-    ({ DMI: 'cf-badge-blue', AP: 'cf-badge-purple', CNSS: 'cf-badge-green', IS: 'cf-badge-amber' }[t] || 'cf-badge-gray');
+    ({ DMI: 'cf-badge-green', AP: 'cf-badge-purple', CNSS: 'cf-badge-green', IS: 'cf-badge-amber' }[t] || 'cf-badge-gray');
   const avancement = (d: Travail): Avancement => avancementDossier(d, objectifsSociete);
 
   const stats = [
@@ -144,7 +144,7 @@ export default function AccueilPage() {
   ];
 
   return (
-    <div>
+    <div className="cf-accueil">
       <div className="cf-page-head">
         <div>
           <h1 className="cf-page-title">👋 Bonjour {session?.user.full_name}</h1>
