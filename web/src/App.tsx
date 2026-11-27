@@ -1,37 +1,92 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+
 import DMIPage from './pages/DMIPage';
 import APPage from './pages/APPage';
 import CNSSPage from './pages/CNSSPage';
 import ISPage from './pages/ISPage';
 import SocietesPage from './pages/SocietesPage';
 import ComptesPage from './pages/ComptesPage';
+import LoginPage from './pages/LoginPage';
+import { API_URL } from './lib/api';
+import { getSession, clearSession, type AuthUser } from './lib/auth';
+
+function Layout({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex gap-4 items-center flex-wrap">
+          <a href="/societes" className="px-3 py-2 rounded-lg hover:bg-gray-100">Sociétés</a>
+          <a href="/comptes" className="px-3 py-2 rounded-lg hover:bg-gray-100">Comptes</a>
+          <a href="/dmi" className="px-3 py-2 rounded-lg hover:bg-gray-100">DMI</a>
+          <a href="/ap" className="px-3 py-2 rounded-lg hover:bg-gray-100">AP</a>
+          <a href="/cnss" className="px-3 py-2 rounded-lg hover:bg-gray-100">CNSS</a>
+          <a href="/is" className="px-3 py-2 rounded-lg hover:bg-gray-100">IS</a>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-gray-700">
+              {user.full_name}
+              <span className="ml-2 px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                {user.role === 'admin' ? 'Expert' : 'Comptable'}
+              </span>
+            </span>
+            <button
+              onClick={onLogout}
+              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-100"
+            >
+              Déconnexion
+            </button>
+          </div>
+        </div>
+      </nav>
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+function Protected({ user, onLogout }: { user: AuthUser | null; onLogout: () => void }) {
+  if (!user) return <Navigate to="/login" replace />;
+  return <Layout user={user} onLogout={onLogout} />;
+}
 
 export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(() => getSession()?.user || null);
+
+  const logout = async () => {
+    const token = getSession()?.token;
+    if (token) {
+      try {
+        await fetch(`${API_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch {
+        // déconnexion locale même si l'API est injoignable
+      }
+    }
+    clearSession();
+    setUser(null);
+  };
+
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50">
-        <nav className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 py-3 flex gap-4">
-            <a href="/societes" className="px-3 py-2 rounded-lg hover:bg-gray-100">Sociétés</a>
-            <a href="/comptes" className="px-3 py-2 rounded-lg hover:bg-gray-100">Comptes</a>
-            <a href="/dmi" className="px-3 py-2 rounded-lg hover:bg-gray-100">DMI</a>
-            <a href="/ap" className="px-3 py-2 rounded-lg hover:bg-gray-100">AP</a>
-            <a href="/cnss" className="px-3 py-2 rounded-lg hover:bg-gray-100">CNSS</a>
-            <a href="/is" className="px-3 py-2 rounded-lg hover:bg-gray-100">IS</a>
-          </div>
-        </nav>
-        <main className="max-w-7xl mx-auto px-4 py-6">
-          <Routes>
-            <Route path="/" element={<Navigate to="/societes" />} />
-            <Route path="/societes" element={<SocietesPage />} />
-            <Route path="/comptes" element={<ComptesPage />} />
-            <Route path="/dmi" element={<DMIPage />} />
-            <Route path="/ap" element={<APPage />} />
-            <Route path="/cnss" element={<CNSSPage />} />
-            <Route path="/is" element={<ISPage />} />
-          </Routes>
-        </main>
-      </div>
+      <Routes>
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/societes" replace /> : <LoginPage onLogin={setUser} />}
+        />
+        <Route element={<Protected user={user} onLogout={logout} />}>
+          <Route path="/" element={<Navigate to="/societes" replace />} />
+          <Route path="/societes" element={<SocietesPage />} />
+          <Route path="/comptes" element={<ComptesPage />} />
+          <Route path="/dmi" element={<DMIPage />} />
+          <Route path="/ap" element={<APPage />} />
+          <Route path="/cnss" element={<CNSSPage />} />
+          <Route path="/is" element={<ISPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to={user ? '/societes' : '/login'} replace />} />
+      </Routes>
     </BrowserRouter>
   );
 }

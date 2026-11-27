@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_URL } from '../lib/api';
+import { API_URL, authFetch } from '../lib/api';
 
 interface User {
   id: string;
@@ -17,7 +17,7 @@ export default function ComptesPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`${API_URL}/api/users`)
+    authFetch(`${API_URL}/api/users`)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

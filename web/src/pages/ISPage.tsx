@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-import { API_URL } from '../lib/api';
+import { API_URL, authFetch } from '../lib/api';
 
 interface Travail {
   id: string;
@@ -27,14 +27,14 @@ export default function ISPage() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/travaux?type=IS`)
+    authFetch(`${API_URL}/api/travaux?type=IS`)
       .then(r => r.json())
       .then(setTravaux)
       .catch(console.error);
   }, []);
 
   const loadPieces = async (travailId: string) => {
-    const res = await fetch(`${API_URL}/api/travaux/${travailId}/pieces`);
+    const res = await authFetch(`${API_URL}/api/travaux/${travailId}/pieces`);
     const data = await res.json();
     setPieces(data);
     setSelectedTravail(travailId);
@@ -47,7 +47,7 @@ export default function ISPage() {
     formData.append('label', file.name);
     
     try {
-      const res = await fetch(`${API_URL}/api/travaux/${travailId}/pieces`, {
+      const res = await authFetch(`${API_URL}/api/travaux/${travailId}/pieces`, {
         method: 'POST',
         body: formData
       });
@@ -62,7 +62,7 @@ export default function ISPage() {
   };
 
   const downloadPdf = async (pieceId: string, fileName: string) => {
-    const res = await fetch(`${API_URL}/api/pieces/${pieceId}/download`);
+    const res = await authFetch(`${API_URL}/api/pieces/${pieceId}/download`);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

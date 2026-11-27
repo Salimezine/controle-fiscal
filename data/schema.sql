@@ -87,3 +87,10 @@ CREATE TABLE IF NOT EXISTS user_societes (
   societe_id TEXT NOT NULL,
   PRIMARY KEY (user_id, societe_id)
 );
+
+-- Sessions de connexion (token Bearer, valable 7 jours)
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);

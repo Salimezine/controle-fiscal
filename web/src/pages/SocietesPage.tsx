@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-import { API_URL } from '../lib/api';
+import { API_URL, authFetch } from '../lib/api';
 
 interface Societe {
   id: string;
@@ -15,7 +15,7 @@ export default function SocietesPage() {
   const [newSociete, setNewSociete] = useState({ raison_sociale: '', matricule_fiscal: '' });
 
   useEffect(() => {
-    fetch(`${API_URL}/api/societes`)
+    authFetch(`${API_URL}/api/societes`)
       .then(r => r.json())
       .then(setSocietes)
       .catch(console.error);
@@ -23,7 +23,7 @@ export default function SocietesPage() {
 
   const addSociete = async () => {
     if (!newSociete.raison_sociale) return;
-    const res = await fetch(`${API_URL}/api/societes`, {
+    const res = await authFetch(`${API_URL}/api/societes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newSociete)

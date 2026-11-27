@@ -99,7 +99,7 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type'
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         }
       });
     }
@@ -107,6 +107,17 @@ export default {
     // Health check
     if (path === '/health') {
       return json({ status: 'ok', project: 'CONTROLE FISCAL' });
+    }
+
+    // === GUARD : toutes les routes /api/ sauf login et sync (CI) exigent un token ===
+    if (path.startsWith('/api/') && path !== '/api/auth/login' && path !== '/api/sync/eurex') {
+      const header = request.headers.get('Authorization') || '';
+      const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+      if (!token) return json({ error: 'Non authentifié' }, 401);
+      const session = await env.DB.prepare(
+        "SELECT user_id FROM sessions WHERE token = ? AND created_at > datetime('now','-7 days')"
+      ).bind(token).first() as any;
+      if (!session) return json({ error: 'Session invalide ou expirée' }, 401);
     }
 
     // === AUTH / SYNC ===
@@ -140,14 +151,28 @@ export default {
         return json({ error: 'Identifiants incorrects' }, 401);
       }
 
+      // Session valable 7 jours
+      const token = genId();
+      await env.DB.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)')
+        .bind(token, user.id).run();
+
       return json({
         id: user.id,
         full_name: user.full_name,
         email: user.email,
         role: user.role,
         societe_id: user.societe_id || null,
+        token,
         synced: true
       });
+    }
+
+    // Déconnexion : invalide le token courant
+    if (path === '/api/auth/logout' && method === 'POST') {
+      const header = request.headers.get('Authorization') || '';
+      const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+      if (token) await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
+      return json({ status: 'ok' });
     }
 
     // === USERS (debug / verification) ===
