@@ -82,8 +82,8 @@ export default function ObjectifsSocietes({ annee }: { annee: number }) {
       <div className="mb-3">
         <h2 className="text-lg font-semibold">🎯 Objectifs par société — {annee}</h2>
         <p className="text-xs text-gray-500 mt-1">
-          1 dossier = 1 société : <b>12 DMI</b> (1/mois), <b>4 CNSS</b> (1/trimestre), <b>3 AP</b>, <b>1 IS</b>.
-          Le « réalisé » compte les PDF déposés pendant l’année.
+          1 dossier = 1 société : <b>12 DMI</b> (1/mois), <b>4 CNSS</b> (1/trimestre, sauf sociétés ayant déjà CNSS = 0),
+          <b> 3 AP</b>, <b> 1 IS</b>. Le « réalisé » compte les PDF déposés pendant l’année.
         </p>
       </div>
 
