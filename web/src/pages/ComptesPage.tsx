@@ -13,12 +13,17 @@ interface User {
 export default function ComptesPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetch(`${API_URL}/api/users`)
-      .then(r => r.json())
-      .then(setUsers)
-      .catch(console.error);
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data: User[]) => { setUsers(data); setLoading(false); })
+      .catch(e => { setError(String(e)); setLoading(false); });
   }, []);
 
   const filtered = users.filter(u =>
@@ -70,7 +75,9 @@ export default function ComptesPage() {
               ))}
             </tbody>
           </table>
-          {filtered.length === 0 && <div className="text-sm text-gray-500 p-3">Aucun compte trouvé.</div>}
+          {loading && <div className="text-sm text-gray-500 p-3">Chargement des comptes...</div>}
+          {!loading && error && <div className="text-sm text-red-600 p-3">Erreur: {error}</div>}
+          {!loading && !error && filtered.length === 0 && <div className="text-sm text-gray-500 p-3">Aucun compte trouvé.</div>}
         </div>
       </div>
     </div>
